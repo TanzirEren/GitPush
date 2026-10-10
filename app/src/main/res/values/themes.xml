@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.GitPush" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="gpPrimary">@color/accent0</item>
+        <item name="gpSecondary">@color/accent0_l</item>
+        <item name="gpOnPrimary">@color/on_primary</item>
+        <item name="gpBg">@color/bg</item>
+        <item name="gpSurface">@color/surface</item>
+        <item name="gpText">@color/text</item>
+        <item name="gpMuted">@color/muted</item>
+        <item name="gpOutline">@color/outline</item>
+        <item name="gpError">@color/error</item>
+        <item name="gpOk">@color/ok</item>
+        <item name="gpWarn">@color/warn</item>
+        <item name="gpGlass">@color/glass</item>
+        <item name="gpGlassStrong">@color/glass_strong</item>
+        <item name="gpStrokeA">@color/stroke_a</item>
+        <item name="gpStrokeB">@color/stroke_b</item>
+        <item name="gpAuroraA">@color/aurora_a</item>
+        <item name="gpAuroraB">@color/aurora_b</item>
+        <item name="colorPrimary">?attr/gpPrimary</item>
+        <item name="colorOnPrimary">?attr/gpOnPrimary</item>
+        <item name="colorSurface">?attr/gpSurface</item>
+        <item name="colorOnSurface">?attr/gpText</item>
+        <item name="android:textColorPrimary">?attr/gpText</item>
+        <item name="android:textColorSecondary">?attr/gpMuted</item>
+        <item name="android:windowBackground">@drawable/bg_aurora</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">@bool/light_bars</item>
+        <item name="android:fontFamily">@font/poppins</item>
+        <item name="fontFamily">@font/poppins</item>
+    </style>
+    <style name="Theme.GitPush.Mint" parent="Theme.GitPush">
+        <item name="gpPrimary">@color/accent0</item>
+        <item name="gpSecondary">@color/accent0_l</item>
+    </style>
+    <style name="Theme.GitPush.Sky" parent="Theme.GitPush">
+        <item name="gpPrimary">@color/accent1</item>
+        <item name="gpSecondary">@color/accent1_l</item>
+    </style>
+    <style name="Theme.GitPush.Violet" parent="Theme.GitPush">
+        <item name="gpPrimary">@color/accent2</item>
+        <item name="gpSecondary">@color/accent2_l</item>
+    </style>
+    <style name="Theme.GitPush.Amber" parent="Theme.GitPush">
+        <item name="gpPrimary">@color/accent3</item>
+        <item name="gpSecondary">@color/accent3_l</item>
+    </style>
+    <style name="Theme.GitPush.Rose" parent="Theme.GitPush">
+        <item name="gpPrimary">@color/accent4</item>
+        <item name="gpSecondary">@color/accent4_l</item>
+    </style>
+</resources>

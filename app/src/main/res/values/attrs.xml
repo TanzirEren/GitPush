@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="gpPrimary" format="color" />
+    <attr name="gpOnPrimary" format="color" />
+    <attr name="gpSecondary" format="color" />
+    <attr name="gpBg" format="color" />
+    <attr name="gpSurface" format="color" />
+    <attr name="gpText" format="color" />
+    <attr name="gpMuted" format="color" />
+    <attr name="gpOutline" format="color" />
+    <attr name="gpError" format="color" />
+    <attr name="gpOk" format="color" />
+    <attr name="gpWarn" format="color" />
+    <attr name="gpGlass" format="color" />
+    <attr name="gpGlassStrong" format="color" />
+    <attr name="gpStrokeA" format="color" />
+    <attr name="gpStrokeB" format="color" />
+    <attr name="gpAuroraA" format="color" />
+    <attr name="gpAuroraB" format="color" />
+</resources>
