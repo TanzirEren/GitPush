@@ -39,7 +39,7 @@ public class SplashActivity extends BaseActivity {
         TextView tag = Ui.muted(this, "Push to GitHub from your pocket");
         tag.setAlpha(0f);
         root.addView(name, Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 24, 0, 0));
-        root.addView(tag);
+        root.addView(tag, Ui.lp(Ui.WRAP, Ui.WRAP));
         setContentView(root);
 
         logo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(700).setInterpolator(new OvershootInterpolator(1.4f)).start();

@@ -128,4 +128,49 @@ public final class Models {
             return h;
         }
     }
+
+    // ---------------------------------------------------------------- Actions
+    public static class Run {
+        public long id, workflowId;
+        public String name, title, status, conclusion, branch, event, sha, htmlUrl, createdAt, actor;
+        public int number, attempt;
+        public boolean active() { return "in_progress".equals(status) || "queued".equals(status) || "waiting".equals(status) || "pending".equals(status) || "requested".equals(status); }
+    }
+
+    public static class Step {
+        public String name, status, conclusion;
+        public int number;
+    }
+
+    public static class Job {
+        public long id;
+        public String name, status, conclusion, startedAt, completedAt;
+        public List<Step> steps = new ArrayList<>();
+    }
+
+    public static class ArtifactInfo {
+        public long id, size;
+        public String name, url;
+        public boolean expired;
+    }
+
+    public static class Workflow {
+        public long id;
+        public String name, path, state;
+    }
+
+    // ---------------------------------------------------------------- Releases
+    public static class Asset {
+        public long id, size;
+        public int downloads;
+        public String name, url, contentType;
+    }
+
+    public static class Release {
+        public long id;
+        public String tag, name, body, target, htmlUrl, createdAt, publishedAt;
+        public boolean draft, prerelease;
+        public List<Asset> assets = new ArrayList<>();
+        public String title() { return name != null && !name.isEmpty() ? name : tag; }
+    }
 }

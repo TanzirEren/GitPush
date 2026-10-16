@@ -14,12 +14,11 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.GitHubApi;
 import com.gitpush.app.data.Models.Branch;
@@ -42,7 +41,7 @@ import java.util.List;
 import java.util.Set;
 
 public class UploadActivity extends BaseActivity {
-    private static final int REQ_FILES = 101, REQ_FOLDER = 102, REQ_ZIP = 103;
+    private static final int REQ_FILES = 101, REQ_FOLDER = 102, REQ_ZIP = 103, REQ_ZIP_ADV = 104;
 
     public static void open(Context c, String owner, String repo) {
         c.startActivity(new Intent(c, UploadActivity.class).putExtra("owner", owner).putExtra("repo", repo));
@@ -66,7 +65,7 @@ public class UploadActivity extends BaseActivity {
     private LinearLayout pushBar;
 
     // push dialog
-    private AlertDialog pushDialog;
+    private GlassDialog pushDialog;
     private boolean conflictShown;
     private final Runnable poll = this::pollPush;
 
@@ -158,8 +157,9 @@ public class UploadActivity extends BaseActivity {
             pickBox.addView(r, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
             pickBox.addView(Ui.muted(this, "Folders keep their name and structure. Tap again to add more. Empty folders get a .gitkeep."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
         } else {
-            pickBox.addView(Ui.outlineButton(this, "🗜 Select ZIP & extract", v -> pick(REQ_ZIP)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
-            pickBox.addView(Ui.muted(this, "The ZIP is extracted automatically. Review the files below, remove what you don't want, then push."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+            pickBox.addView(Ui.button(this, "🗜  Advanced ZIP extractor", v -> pick(REQ_ZIP_ADV)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
+            pickBox.addView(Ui.muted(this, "Choose which inner folder to upload from, strip folders, filter files and review every path before adding."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+            pickBox.addView(Ui.outlineButton(this, "⚡ Quick extract (everything)", v -> pick(REQ_ZIP)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 10, 0, 0));
         }
     }
 
@@ -193,19 +193,21 @@ public class UploadActivity extends BaseActivity {
             st.addFiles(uris, changed);
         } else if (req == REQ_FOLDER && data.getData() != null) { persist(data.getData()); st.addFolder(data.getData(), changed); }
         else if (req == REQ_ZIP && data.getData() != null) st.addZip(data.getData(), changed);
+        else if (req == REQ_ZIP_ADV && data.getData() != null) {
+            persist(data.getData());
+            startActivity(new Intent(this, ZipActivity.class).setData(data.getData()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        }
     }
 
     // ---------------------------------------------------------------- branch
     private void branchMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(this, anchor);
-        for (int i = 0; i < branches.size(); i++) pm.getMenu().add(0, i, i, branches.get(i).name);
-        pm.getMenu().add(1, 1000, 1000, "＋ New branch…");
-        pm.setOnMenuItemClickListener(it -> {
-            if (it.getItemId() == 1000) newBranch();
-            else { branch = branches.get(it.getItemId()).name; branchBtn.setText("Branch: " + branch + "  ▾"); }
-            return true;
+        String[] n = new String[branches.size() + 1];
+        for (int i = 0; i < branches.size(); i++) n[i] = (branches.get(i).name.equals(branch) ? "✓  " : "      ") + branches.get(i).name;
+        n[branches.size()] = "＋  New branch…";
+        Ui.pickList(this, "Choose branch", n, i -> {
+            if (i == branches.size()) newBranch();
+            else { branch = branches.get(i).name; branchBtn.setText("Branch: " + branch + "  ▾"); }
         });
-        pm.show();
     }
 
     private void newBranch() {
@@ -313,10 +315,11 @@ public class UploadActivity extends BaseActivity {
         box.addView(desc, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         LinearLayout chips = Ui.hbox(this);
+        chips.addView(Ui.chip(this, "✨ AI message", true, v -> aiMessage(msg, desc)), Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 0, 6, 0));
         for (final String s : sugg) chips.addView(Ui.chip(this, s, false, v -> msg.setText(s)), Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 0, 6, 0));
         hs.addView(chips);
         box.addView(hs, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 10, 0, 0));
-        new AlertDialog.Builder(this).setTitle("Commit & push").setView(box)
+        new GlassDialog(this).setTitle("Commit & push").setIcon("🚀").setView(box)
                 .setPositiveButton("Push", (d, w) -> {
                     String m = msg.getText().toString().trim();
                     if (m.isEmpty()) { Ui.toast(this, "Enter a commit message"); return; }
@@ -324,6 +327,23 @@ public class UploadActivity extends BaseActivity {
                     st.startPush(repo, branch, PathUtils.trimSlashes(targetDir.trim()), m, desc.getText().toString());
                     showPushDialog();
                 }).setNegativeButton("Cancel", null).show();
+    }
+
+    private void aiMessage(final EditText msg, final EditText desc) {
+        if (!com.gitpush.app.data.AiClient.configured(st.store)) { com.gitpush.app.ui.AiSettings.show(this, null); return; }
+        final StringBuilder sb = new StringBuilder("Repository: " + owner + "/" + repoName + "\nBranch: " + branch + "\nTarget folder: " + (targetDir.isEmpty() ? "(root)" : targetDir)
+                + "\nFiles being added (" + st.staged.size() + "):\n");
+        for (int i = 0; i < st.staged.size() && i < 80; i++) sb.append("- ").append(st.staged.get(i).path).append('\n');
+        final String old = msg.getText().toString();
+        msg.setText("✨ writing…");
+        async(() -> com.gitpush.app.data.AiClient.complete(st.store,
+                "You write git commit messages. Reply with: line 1 = a concise imperative commit subject (max 72 chars, no trailing period, no quotes); then a blank line; then at most 3 short bullet lines describing the change. No other text.",
+                sb.toString(), 300), text -> {
+            String t = com.gitpush.app.data.AiClient.stripFence(text);
+            int nl = t.indexOf('\n');
+            msg.setText((nl < 0 ? t : t.substring(0, nl)).trim());
+            if (nl > 0) desc.setText(t.substring(nl).trim());
+        }, e -> { msg.setText(old); Ui.toast(this, msg(e)); });
     }
 
     private List<String> suggest(List<String> names) {
@@ -360,7 +380,7 @@ public class UploadActivity extends BaseActivity {
         pdButtons = Ui.hbox(this);
         pdButtons.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         box.addView(pdButtons, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
-        pushDialog = new AlertDialog.Builder(this).setView(box).setCancelable(false).create();
+        pushDialog = new GlassDialog(this).setTitle("Pushing to GitHub").setIcon("☁").setView(box).setCancelable(false).create();
         pushDialog.show();
         pollPush();
     }
@@ -412,7 +432,7 @@ public class UploadActivity extends BaseActivity {
         for (int i = 0; i < changed.size() && i < 25; i++) sb.append("• ").append(changed.get(i)).append('\n');
         if (changed.size() > 25) sb.append("… and ").append(changed.size() - 25).append(" more\n");
         if (s.conflictIdentical > 0) sb.append('\n').append(s.conflictIdentical).append(" identical file(s) are skipped automatically.");
-        new AlertDialog.Builder(this).setTitle(changed.size() + " file(s) already exist").setMessage(sb.toString()).setCancelable(false)
+        new GlassDialog(this).setTitle(changed.size() + " file(s) already exist").setMessage(sb.toString()).setIcon("⚠").setCancelable(false)
                 .setPositiveButton("Replace", (d, w) -> s.resolveConflict(Pusher.REPLACE))
                 .setNegativeButton("Skip", (d, w) -> s.resolveConflict(Pusher.SKIP))
                 .setNeutralButton("Cancel", (d, w) -> s.resolveConflict(Pusher.CANCEL)).show();

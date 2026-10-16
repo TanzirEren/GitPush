@@ -12,10 +12,9 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.GitHubApi;
 import com.gitpush.app.data.GitOps;
@@ -209,17 +208,20 @@ public class BrowserActivity extends BaseActivity {
     }
 
     private void branchMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(this, anchor);
-        for (int i = 0; i < branches.size(); i++) pm.getMenu().add(0, i, i, branches.get(i).name);
-        pm.setOnMenuItemClickListener(it -> { branch = branches.get(it.getItemId()).name; st.browserBranch = branch; path = ""; allTree = null; load(); return true; });
-        pm.show();
+        Ui.pickList(this, "Switch branch", branchNames(), i -> { branch = branches.get(i).name; st.browserBranch = branch; path = ""; allTree = null; load(); });
+    }
+
+    private String[] branchNames() {
+        String[] n = new String[branches.size()];
+        for (int i = 0; i < n.length; i++) n[i] = (branches.get(i).name.equals(branch) ? "✓  " : "      ") + branches.get(i).name;
+        return n;
     }
 
     private void confirmDelete() {
         final List<String> paths = new ArrayList<>(selected);
         StringBuilder sb = new StringBuilder("Files and whole folders will be deleted from '" + branch + "' in ONE commit. You can revert it from the commit history.\n\n");
         for (String p : paths) sb.append("• ").append(p).append('\n');
-        Ui.confirm(this, "Delete " + paths.size() + " item(s)?", sb.toString(), "Delete", () -> {
+        Ui.confirmDanger(this, "Delete " + paths.size() + " item(s)?", sb.toString(), "Delete", () -> {
             final String msg = paths.size() == 1 ? "Delete " + paths.get(0) : "Delete " + paths.size() + " items";
             Ui.toast(this, "Deleting…");
             async(() -> GitOps.deletePaths(api, owner, repo, branch, paths, msg), sha -> { Ui.toast(this, "Deleted in one commit"); allTree = null; load(); }, e -> Ui.toast(this, msg(e)));
@@ -236,7 +238,7 @@ public class BrowserActivity extends BaseActivity {
         content.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         box.addView(name, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 6, 0, 0));
         box.addView(content, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
-        new AlertDialog.Builder(this).setTitle("New file").setView(box).setPositiveButton("Create", (d, w) -> {
+        new GlassDialog(this).setTitle("New file").setView(box).setPositiveButton("Create", (d, w) -> {
             final String n = name.getText().toString().trim();
             final String full = PathUtils.join(path, n);
             if (n.isEmpty() || !PathUtils.isValidRepoPath(full)) { Ui.toast(this, "Invalid file name"); return; }

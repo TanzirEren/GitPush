@@ -9,11 +9,10 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.GitHubApi;
 import com.gitpush.app.data.Models.Branch;
@@ -121,11 +120,14 @@ public class CommitsActivity extends BaseActivity {
         return wrap;
     }
 
+    private String[] names() {
+        String[] n = new String[branches.size()];
+        for (int i = 0; i < n.length; i++) n[i] = branches.get(i).name;
+        return n;
+    }
+
     private void branchMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(this, anchor);
-        for (int i = 0; i < branches.size(); i++) pm.getMenu().add(0, i, i, branches.get(i).name);
-        pm.setOnMenuItemClickListener(it -> { branch = branches.get(it.getItemId()).name; reload(); return true; });
-        pm.show();
+        Ui.pickList(this, "Switch branch", names(), i -> { branch = branches.get(i).name; reload(); });
     }
 
     // ---------------------------------------------------------------- compare & merge
@@ -157,15 +159,15 @@ public class CommitsActivity extends BaseActivity {
         ScrollView sv = new ScrollView(this);
         sv.addView(info);
         box.addView(sv, Ui.lp(Ui.MATCH, Ui.dp(this, 140)));
-        final AlertDialog d = new AlertDialog.Builder(this).setTitle("Compare & merge").setView(box)
+        final GlassDialog d = new GlassDialog(this).setTitle("Compare & merge").setView(box)
                 .setPositiveButton("Compare", null).setNeutralButton("Merge", null).setNegativeButton("Close", null).create();
         d.show();
-        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+        d.getButton(GlassDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (base.equals(head)) { Ui.toast(this, "Choose two different branches"); return; }
             final String b1 = base, h1 = head;
             async(() -> api.compare(owner, repo, b1, h1), r -> { result = r; refresh.run(); }, e -> Ui.toast(this, msg(e)));
         });
-        d.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+        d.getButton(GlassDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
             if (result == null || result.ahead <= 0) { Ui.toast(this, "Compare first – nothing to merge yet"); return; }
             final String b1 = base, h1 = head;
             Ui.confirm(this, "Merge " + h1 + " into " + b1 + "?", "This creates a merge commit on '" + b1 + "'.", "Merge", () ->
@@ -174,9 +176,6 @@ public class CommitsActivity extends BaseActivity {
     }
 
     private void pickBranch(View anchor, Ui.Cb<String> cb) {
-        PopupMenu pm = new PopupMenu(this, anchor);
-        for (int i = 0; i < branches.size(); i++) pm.getMenu().add(0, i, i, branches.get(i).name);
-        pm.setOnMenuItemClickListener(it -> { cb.on(branches.get(it.getItemId()).name); return true; });
-        pm.show();
+        Ui.pickList(this, "Choose branch", names(), i -> cb.on(branches.get(i).name));
     }
 }

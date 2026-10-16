@@ -115,7 +115,7 @@ public class LoginActivity extends BaseActivity {
             tokenIn.setTransformationMethod(tokenVisible ? null : PasswordTransformationMethod.getInstance());
             panel.addView(tokenIn, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
             panel.addView(Ui.textButton(this, tokenVisible ? "Hide token" : "Show token", R.attr.gpPrimary, v -> { tokenVisible = !tokenVisible; renderPanel(); }));
-            panel.addView(Ui.muted(this, "Needs the 'repo' scope (classic) or Contents: Read & write (fine-grained)."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 0, 0, 14));
+            panel.addView(Ui.muted(this, "Use a classic token with: repo, workflow, delete_repo, read:org, user (see the guide below)."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 0, 0, 14));
             panel.addView(Ui.button(this, busy ? "Checking…" : "Sign in", v -> signInToken()));
         }
         panel.addView(errorTv, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));

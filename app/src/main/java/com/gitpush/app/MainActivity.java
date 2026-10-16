@@ -31,7 +31,11 @@ public class MainActivity extends BaseActivity {
         content = new FrameLayout(this);
         root.addView(content, new FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH));
         home = new HomeTab(this); repos = new ReposTab(this); profile = new ProfileTab(this);
+        View scrim = new View(this);
+        scrim.setBackgroundResource(R.drawable.bg_scrim);
+        root.addView(scrim, new FrameLayout.LayoutParams(Ui.MATCH, Ui.dp(this, 150), Gravity.BOTTOM));
         root.addView(buildNav(), new FrameLayout.LayoutParams(Ui.MATCH, Ui.WRAP, Gravity.BOTTOM));
+        st.loadRepos(false, null);
         setContentView(root);
         if (Build.VERSION.SDK_INT >= 33 && !st.store.prefs.getBoolean("asked_notif", false)) {
             st.store.prefs.edit().putBoolean("asked_notif", true).apply();
@@ -74,7 +78,7 @@ public class MainActivity extends BaseActivity {
         ImageView iv = new ImageView(this);
         iv.setImageResource(icon);
         l.addView(iv, Ui.lp(Ui.dp(this, 24), Ui.dp(this, 24)));
-        l.addView(Ui.text(this, label, 11, true, R.attr.gpMuted));
+        l.addView(Ui.text(this, label, 11, true, R.attr.gpMuted), Ui.lp(Ui.WRAP, Ui.WRAP));
         l.setOnClickListener(v -> { Ui.haptic(v); select(target); });
         return l;
     }
@@ -104,6 +108,11 @@ public class MainActivity extends BaseActivity {
         fp.bottomMargin = Ui.dp(this, 30);
         wrap.addView(fab, fp);
         return wrap;
+    }
+
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        com.gitpush.app.ui.Downloader.onResult(this, req, res, data);
     }
 
     @Override public void onBackPressed() { if (tab != 0) select(0); else super.onBackPressed(); }

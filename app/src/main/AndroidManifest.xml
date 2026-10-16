@@ -44,6 +44,11 @@
         <activity android:name=".FileViewerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
         <activity android:name=".CommitsActivity" android:exported="false" />
         <activity android:name=".CommitDetailActivity" android:exported="false" />
+        <activity android:name=".ZipActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ActionsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
+        <activity android:name=".ReleasesActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
+        <activity android:name=".ReleaseEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".AiReadmeActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ToolsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

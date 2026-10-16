@@ -393,4 +393,232 @@ public class GitHubApi {
         if (r.code == 409) throw new ApiException(409, "Merge conflict. Resolve it on GitHub.");
         throw fail(r);
     }
+
+    // ---------------------------------------------------------------- progress / raw bodies / streaming
+    public interface ProgressCb { void on(long done, long total); }
+
+    static class RawBody extends RequestBody {
+        private final MediaType type; private final long size; private final StreamSource src; private final ProgressCb cb;
+        RawBody(String mime, long size, StreamSource src, ProgressCb cb) {
+            MediaType t;
+            try { t = MediaType.get(mime == null || mime.isEmpty() ? "application/octet-stream" : mime); } catch (Exception e) { t = MediaType.get("application/octet-stream"); }
+            this.type = t; this.size = size; this.src = src; this.cb = cb;
+        }
+        @Override public MediaType contentType() { return type; }
+        @Override public long contentLength() { return size; }
+        @Override public boolean isOneShot() { return false; }
+        @Override public void writeTo(BufferedSink sink) throws IOException {
+            try (InputStream in = src.open()) {
+                byte[] buf = new byte[64 * 1024]; int n; long done = 0;
+                OutputStream os = sink.outputStream();
+                while ((n = in.read(buf)) >= 0) { os.write(buf, 0, n); done += n; if (cb != null) cb.on(done, size); }
+            }
+        }
+    }
+
+    /** Authenticated GET streamed into [out] (follows redirects; used for zipballs, logs, artifacts). */
+    public void stream(String url, OutputStream out, ProgressCb cb) throws ApiException {
+        Call call = null;
+        try {
+            String full = url.startsWith("http") ? url : "https://api.github.com" + url;
+            Request req = new Request.Builder().url(full).header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28")
+                    .header("User-Agent", "GitPush-Android").get().build();
+            call = CLIENT.newCall(req);
+            calls.add(call);
+            try (Response r = call.execute()) {
+                if (!r.isSuccessful()) {
+                    String t = r.body() != null ? r.body().string() : "";
+                    throw fail(new Resp(r.code(), t, r.headers()));
+                }
+                okhttp3.ResponseBody b = r.body();
+                if (b == null) throw new ApiException(-3, "Empty response");
+                long total = b.contentLength();
+                try (InputStream in = b.byteStream()) {
+                    byte[] buf = new byte[64 * 1024]; int n; long done = 0;
+                    while ((n = in.read(buf)) >= 0) { out.write(buf, 0, n); done += n; if (cb != null) cb.on(done, total); }
+                }
+            }
+        } catch (IOException e) {
+            if (aborted) throw new ApiException(-2, "Cancelled");
+            throw new ApiException(-1, "Network error: " + (e.getMessage() == null ? "download failed" : e.getMessage()));
+        } finally { if (call != null) calls.remove(call); }
+    }
+
+    // ---------------------------------------------------------------- repo management
+    public Repo updateRepo(String owner, String repo, JSONObject patch) throws ApiException {
+        return parseRepo(ok(call("PATCH", rp(owner, repo), jsonBody(patch))).json());
+    }
+
+    public void deleteRepo(String owner, String repo) throws ApiException { ok(call("DELETE", rp(owner, repo), null)); }
+
+    public List<String> topics(String owner, String repo) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/topics", null)).json().optJSONArray("names");
+        List<String> out = new ArrayList<>();
+        if (arr != null) for (int i = 0; i < arr.length(); i++) out.add(arr.optString(i));
+        return out;
+    }
+
+    public void setTopics(String owner, String repo, List<String> names) throws ApiException {
+        JSONArray a = new JSONArray();
+        for (String n : names) a.put(n);
+        ok(call("PUT", rp(owner, repo) + "/topics", jsonBody(obj("names", a))));
+    }
+
+    /** Returns {remaining, limit, resetEpochSeconds}. */
+    public long[] rateLimit() throws ApiException {
+        JSONObject core = o(o(ok(call("GET", "/rate_limit", null)).json(), "resources"), "core");
+        return new long[]{core.optLong("remaining"), core.optLong("limit"), core.optLong("reset")};
+    }
+
+    // ---------------------------------------------------------------- Actions
+    private Run parseRun(JSONObject j) {
+        Run r = new Run();
+        r.id = j.optLong("id"); r.workflowId = j.optLong("workflow_id"); r.name = j.optString("name");
+        r.title = str(j, "display_title"); if (r.title == null) r.title = r.name;
+        r.status = j.optString("status"); r.conclusion = str(j, "conclusion"); r.branch = str(j, "head_branch");
+        r.event = j.optString("event"); r.sha = j.optString("head_sha"); r.htmlUrl = j.optString("html_url");
+        r.createdAt = j.optString("created_at"); r.actor = o(j, "actor").optString("login");
+        r.number = j.optInt("run_number"); r.attempt = j.optInt("run_attempt", 1);
+        return r;
+    }
+
+    public List<Run> runs(String owner, String repo, int perPage) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/actions/runs?per_page=" + perPage, null)).json().optJSONArray("workflow_runs");
+        List<Run> out = new ArrayList<>();
+        if (arr != null) for (int i = 0; i < arr.length(); i++) { JSONObject j = arr.optJSONObject(i); if (j != null) out.add(parseRun(j)); }
+        return out;
+    }
+
+    public List<Job> jobs(String owner, String repo, long runId) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/actions/runs/" + runId + "/jobs?per_page=50", null)).json().optJSONArray("jobs");
+        List<Job> out = new ArrayList<>();
+        if (arr == null) return out;
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject j = arr.optJSONObject(i);
+            if (j == null) continue;
+            Job job = new Job();
+            job.id = j.optLong("id"); job.name = j.optString("name"); job.status = j.optString("status"); job.conclusion = str(j, "conclusion");
+            job.startedAt = str(j, "started_at"); job.completedAt = str(j, "completed_at");
+            JSONArray st = j.optJSONArray("steps");
+            if (st != null) for (int k = 0; k < st.length(); k++) {
+                JSONObject sj = st.optJSONObject(k);
+                if (sj == null) continue;
+                Step step = new Step();
+                step.name = sj.optString("name"); step.status = sj.optString("status"); step.conclusion = str(sj, "conclusion"); step.number = sj.optInt("number");
+                job.steps.add(step);
+            }
+            out.add(job);
+        }
+        return out;
+    }
+
+    public List<ArtifactInfo> artifacts(String owner, String repo, long runId) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/actions/runs/" + runId + "/artifacts", null)).json().optJSONArray("artifacts");
+        List<ArtifactInfo> out = new ArrayList<>();
+        if (arr != null) for (int i = 0; i < arr.length(); i++) {
+            JSONObject j = arr.optJSONObject(i);
+            if (j == null) continue;
+            ArtifactInfo a = new ArtifactInfo();
+            a.id = j.optLong("id"); a.name = j.optString("name"); a.size = j.optLong("size_in_bytes"); a.expired = j.optBoolean("expired");
+            a.url = j.optString("archive_download_url");
+            out.add(a);
+        }
+        return out;
+    }
+
+    public void rerun(String owner, String repo, long runId, boolean failedOnly) throws ApiException {
+        ok(call("POST", rp(owner, repo) + "/actions/runs/" + runId + (failedOnly ? "/rerun-failed-jobs" : "/rerun"), null));
+    }
+
+    public void cancelRun(String owner, String repo, long runId) throws ApiException { ok(call("POST", rp(owner, repo) + "/actions/runs/" + runId + "/cancel", null)); }
+
+    public void deleteRun(String owner, String repo, long runId) throws ApiException { ok(call("DELETE", rp(owner, repo) + "/actions/runs/" + runId, null)); }
+
+    public List<Workflow> workflows(String owner, String repo) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/actions/workflows?per_page=50", null)).json().optJSONArray("workflows");
+        List<Workflow> out = new ArrayList<>();
+        if (arr != null) for (int i = 0; i < arr.length(); i++) {
+            JSONObject j = arr.optJSONObject(i);
+            if (j == null) continue;
+            Workflow w = new Workflow();
+            w.id = j.optLong("id"); w.name = j.optString("name"); w.path = j.optString("path"); w.state = j.optString("state");
+            out.add(w);
+        }
+        return out;
+    }
+
+    public void dispatch(String owner, String repo, long workflowId, String ref) throws ApiException {
+        ok(call("POST", rp(owner, repo) + "/actions/workflows/" + workflowId + "/dispatches", jsonBody(obj("ref", ref))));
+    }
+
+    public void setWorkflowEnabled(String owner, String repo, long workflowId, boolean enabled) throws ApiException {
+        ok(call("PUT", rp(owner, repo) + "/actions/workflows/" + workflowId + (enabled ? "/enable" : "/disable"), null));
+    }
+
+    // ---------------------------------------------------------------- Releases
+    private Release parseRelease(JSONObject j) {
+        Release r = new Release();
+        r.id = j.optLong("id"); r.tag = j.optString("tag_name"); r.name = str(j, "name"); r.body = str(j, "body");
+        r.target = str(j, "target_commitish"); r.htmlUrl = j.optString("html_url"); r.createdAt = j.optString("created_at");
+        r.publishedAt = str(j, "published_at"); r.draft = j.optBoolean("draft"); r.prerelease = j.optBoolean("prerelease");
+        JSONArray as = j.optJSONArray("assets");
+        if (as != null) for (int i = 0; i < as.length(); i++) {
+            JSONObject aj = as.optJSONObject(i);
+            if (aj != null) r.assets.add(parseAsset(aj));
+        }
+        return r;
+    }
+
+    private Asset parseAsset(JSONObject aj) {
+        Asset a = new Asset();
+        a.id = aj.optLong("id"); a.name = aj.optString("name"); a.size = aj.optLong("size"); a.downloads = aj.optInt("download_count");
+        a.url = aj.optString("browser_download_url"); a.contentType = aj.optString("content_type");
+        return a;
+    }
+
+    public List<Release> releases(String owner, String repo) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/releases?per_page=30", null)).array();
+        List<Release> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) { JSONObject j = arr.optJSONObject(i); if (j != null) out.add(parseRelease(j)); }
+        return out;
+    }
+
+    public Release createRelease(String owner, String repo, String tag, String target, String name, String body,
+                                 boolean draft, boolean prerelease, boolean generateNotes) throws ApiException {
+        JSONObject j = obj("tag_name", tag, "name", name, "body", body, "draft", draft, "prerelease", prerelease, "generate_release_notes", generateNotes);
+        if (target != null && !target.isEmpty()) try { j.put("target_commitish", target); } catch (JSONException ignored) { }
+        return parseRelease(ok(call("POST", rp(owner, repo) + "/releases", jsonBody(j))).json());
+    }
+
+    public Release updateRelease(String owner, String repo, long id, JSONObject patch) throws ApiException {
+        return parseRelease(ok(call("PATCH", rp(owner, repo) + "/releases/" + id, jsonBody(patch))).json());
+    }
+
+    public void deleteRelease(String owner, String repo, long id) throws ApiException { ok(call("DELETE", rp(owner, repo) + "/releases/" + id, null)); }
+
+    public void deleteAsset(String owner, String repo, long assetId) throws ApiException { ok(call("DELETE", rp(owner, repo) + "/releases/assets/" + assetId, null)); }
+
+    public Asset uploadAsset(String owner, String repo, long releaseId, String name, String mime, long size, StreamSource src, ProgressCb cb) throws ApiException {
+        String url = "https://uploads.github.com/repos/" + enc(owner) + "/" + enc(repo) + "/releases/" + releaseId + "/assets?name=" + enc(name);
+        return parseAsset(ok(call("POST", url, new RawBody(mime, size, src, cb))).json());
+    }
+
+    /** Returns {name, body} generated by GitHub. */
+    public String[] generateNotes(String owner, String repo, String tag, String target, String previousTag) throws ApiException {
+        JSONObject j = obj("tag_name", tag);
+        try {
+            if (target != null && !target.isEmpty()) j.put("target_commitish", target);
+            if (previousTag != null && !previousTag.isEmpty()) j.put("previous_tag_name", previousTag);
+        } catch (JSONException ignored) { }
+        JSONObject r = ok(call("POST", rp(owner, repo) + "/releases/generate-notes", jsonBody(j))).json();
+        return new String[]{r.optString("name"), r.optString("body")};
+    }
+
+    public List<String> tags(String owner, String repo) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/tags?per_page=30", null)).array();
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) { JSONObject j = arr.optJSONObject(i); if (j != null) out.add(j.optString("name")); }
+        return out;
+    }
 }

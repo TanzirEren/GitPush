@@ -25,7 +25,7 @@ public final class OAuthDevice {
     public static DeviceCode start(String clientId) throws ApiException {
         try {
             JSONObject j = new JSONObject(post("https://github.com/login/device/code",
-                    new FormBody.Builder().add("client_id", clientId).add("scope", "repo").build()));
+                    new FormBody.Builder().add("client_id", clientId).add("scope", "repo workflow delete_repo read:org user").build()));
             if (j.has("error")) {
                 String desc = j.optString("error_description", j.optString("error"));
                 throw new ApiException(400, desc + " (Enable 'Device Flow' in your OAuth app settings)");

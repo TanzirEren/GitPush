@@ -12,7 +12,7 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.Models.Account;
 import com.gitpush.app.ui.ImageLoader;
@@ -23,19 +23,21 @@ import java.util.List;
 
 class ProfileTab {
     static final String[] FEATURES = {
-            "GitHub OAuth (Device Flow) & Personal Access Token login", "Multiple accounts with instant switching", "Encrypted token storage (Android Keystore)",
-            "Public / private repository filter & search", "Create repositories", "Repository permission checker",
-            "Pick files and folders with folder structure preserved", "ZIP upload with automatic extraction", "Review, select & delete staged files/folders before pushing",
-            "Duplicate detection (same file selected twice)", "Empty-folder handling (.gitkeep)", "Upload size calculator & large-file warning",
-            "Branch selector, create & delete branches", "Target folder inside the repo", "Single atomic commit (no half-pushed uploads)",
-            "Commit message + description with smart suggestions", "Live progress, per-file status, cancel & retry failed", "Existing-file conflict detection: Replace / Skip / Cancel",
-            "Unchanged files auto-skipped (SHA compare)", "Rate-limit & network retry handling", "Repository browser with breadcrumbs and search",
+            "GitHub OAuth (Device Flow) & classic Personal Access Token login", "Multiple accounts with instant switching", "Encrypted token storage (Android Keystore)",
+            "Public / private repo filter, search, favorites", "Create, edit, rename, topics, download ZIP, delete repositories", "Repository permission checker",
+            "Pick files and folders with folder structure preserved", "Advanced ZIP extractor: choose root folder, strip levels, filters, per-file path review", "Review, select & delete staged files/folders before pushing",
+            "Duplicate detection and .gitkeep for empty folders", "Upload size calculator & large-file warning",
+            "Branch selector, create branches, compare & merge", "Target folder inside the repo", "Single atomic commit (no half-pushed uploads)",
+            "Commit message + description with smart & AI suggestions", "Live progress, per-file status, cancel & retry failed", "Existing-file conflict detection: Replace / Skip / Cancel",
+            "Unchanged files auto-skipped (SHA compare)", "Rate-limit & network retry handling", "Repository browser with breadcrumbs and whole-repo search",
             "Code viewer with syntax colors & line numbers", "Code editor with commit", "Create / rename / move / delete files",
             "Delete one or many files & folders in one commit", "Image preview & Markdown preview", "Download file, copy path & raw URL",
-            "Commit history, commit details & diff viewer", "Compare & merge branches, revert commit", ".gitignore & README generators",
-            "SHA-256 / Git-SHA file checker", "Share files from other apps into GitPush", "Upload history, repeat last config & report export",
-            "Upload notifications", "Light / Dark / System themes, accent colors, density, haptics", "Glass UI, splash & onboarding animations"
+            "Commit history, commit details & diff viewer, revert", "GitHub Actions: runs, jobs, re-run, cancel, artifacts, logs, dispatch", "Releases: create, edit, auto/AI notes, upload assets",
+            "AI README writer (bring your own key)", ".gitignore & README generators", "SHA-256 / Git-SHA file checker",
+            "Share files from other apps into GitPush", "Dashboard with 7-day chart, latest build & API rate limit", "Upload history, repeat last config & report export",
+            "Upload notifications", "Light / Dark / System themes, accent colors, density, haptics", "Animated glass dialogs, splash & onboarding"
     };
+
     private static final String[] ACCENTS = {"Mint", "Sky", "Violet", "Amber", "Rose"};
     private static final int[] ACCENT_COLORS = {0xFF47C8AF, 0xFF7CA8FF, 0xFFB794FF, 0xFFFFA45C, 0xFFFF7A9C};
 
@@ -64,7 +66,7 @@ class ProfileTab {
         ImageLoader.circle(av, acc == null ? null : acc.avatar, 92);
         head.addView(av);
         head.addView(Ui.text(a, acc == null ? "Not signed in" : acc.display(), 20, true, R.attr.gpText), Ui.lp(a, Ui.WRAP, Ui.WRAP, 0, 10, 0, 0));
-        if (acc != null) head.addView(Ui.muted(a, "@" + acc.login));
+        if (acc != null) head.addView(Ui.center(Ui.muted(a, "@" + acc.login)));
         col.addView(head, Ui.lp(Ui.MATCH, Ui.WRAP));
 
         col.addView(Ui.section(a, "Accounts"));
@@ -82,7 +84,7 @@ class ProfileTab {
             r.addView(t, Ui.weight(1f));
             boolean sel = acc != null && acc.login.equals(x.login);
             r.addView(sel ? Ui.pill(a, "ACTIVE", R.attr.gpOk) : Ui.text(a, "Switch", 13, true, R.attr.gpPrimary));
-            r.addView(Ui.textButton(a, "⎋", R.attr.gpMuted, v -> Ui.confirm(a, "Sign out @" + x.login + "?",
+            r.addView(Ui.textButton(a, "Sign out", R.attr.gpError, v -> Ui.confirm(a, "Sign out @" + x.login + "?",
                     "The saved token is removed from this device. You can sign in again any time.", "Sign out", () -> {
                         st.logout(x.login);
                         if (st.accounts.isEmpty()) { a.startActivity(new Intent(a, LoginActivity.class)); a.finish(); } else refresh();
@@ -146,6 +148,13 @@ class ProfileTab {
         tools.setOnClickListener(v -> a.startActivity(new Intent(a, ToolsActivity.class)));
         col.addView(tools, side(10));
 
+        LinearLayout ai = Ui.card(a);
+        boolean aiOn = com.gitpush.app.data.AiClient.configured(st.store);
+        ai.addView(Ui.title(a, "✨  AI assistant"));
+        ai.addView(Ui.muted(a, aiOn ? "Ready • " + st.store.aiModel() : "Not set up – add your own API key to write READMEs, release notes and commit messages."));
+        ai.setOnClickListener(v -> com.gitpush.app.ui.AiSettings.show(a, this::refresh));
+        col.addView(ai, side(10));
+
         col.addView(Ui.section(a, "About GitPush"));
         LinearLayout about = Ui.card(a);
         about.addView(Ui.title(a, "GitPush"));
@@ -184,6 +193,6 @@ class ProfileTab {
     private void features() {
         StringBuilder sb = new StringBuilder();
         for (String f : FEATURES) sb.append("• ").append(f).append("\n");
-        new AlertDialog.Builder(a).setTitle("Features").setMessage(sb.toString().trim()).setPositiveButton("Close", null).show();
+        new GlassDialog(a).setTitle("Features").setMessage(sb.toString().trim()).setPositiveButton("Close", null).show();
     }
 }

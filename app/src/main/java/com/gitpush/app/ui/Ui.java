@@ -19,7 +19,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
+import android.animation.ValueAnimator;
+import android.content.res.Resources;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.gitpush.app.R;
 
@@ -67,11 +69,70 @@ public final class Ui {
     }
     public static LinearLayout.LayoutParams weight(float w) { return new LinearLayout.LayoutParams(0, WRAP, w); }
 
+    private static Typeface tfRegular, tfBold;
+
+    public static Typeface font(Context c, boolean bold) {
+        try {
+            if (bold) { if (tfBold == null) tfBold = ResourcesCompat.getFont(c, R.font.poppins_semibold); return tfBold; }
+            if (tfRegular == null) tfRegular = ResourcesCompat.getFont(c, R.font.poppins_regular);
+            return tfRegular;
+        } catch (Resources.NotFoundException e) { return null; }
+    }
+
     public static TextView text(Context c, CharSequence t, float sp, boolean bold, int colorAttr) {
         TextView v = new TextView(c);
         v.setText(t); v.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp); v.setTextColor(color(c, colorAttr));
-        if (bold) v.setTypeface(v.getTypeface(), Typeface.BOLD);
+        Typeface f = font(c, bold);
+        if (f != null) v.setTypeface(f);
         return v;
+    }
+
+    /** Centers text inside a full-width cell (vertical LinearLayout children default to MATCH_PARENT width). */
+    public static <T extends TextView> T center(T v) { v.setGravity(Gravity.CENTER_HORIZONTAL); return v; }
+
+    /** Subtle press-scale animation for tappable cards. */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    public static void pressable(View v) {
+        v.setOnTouchListener((view, e) -> {
+            int a = e.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_DOWN) view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start();
+            else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) view.animate().scaleX(1f).scaleY(1f).setDuration(140).start();
+            return false;
+        });
+    }
+
+    /** Staggered fade/slide-in of all children. */
+    public static void stagger(ViewGroup g) {
+        for (int i = 0; i < g.getChildCount(); i++) {
+            View c = g.getChildAt(i);
+            c.setAlpha(0f); c.setTranslationY(dp(g.getContext(), 22));
+            c.animate().alpha(1f).translationY(0f).setStartDelay(Math.min(i, 12) * 45L).setDuration(320).start();
+        }
+    }
+
+    public static void fadeIn(View v, int position) {
+        v.setAlpha(0f); v.setTranslationY(dp(v.getContext(), 16));
+        v.animate().alpha(1f).translationY(0f).setStartDelay(Math.min(position, 6) * 25L).setDuration(260).start();
+    }
+
+    public static void countUp(final TextView t, final int target, final String suffix) {
+        ValueAnimator a = ValueAnimator.ofInt(0, target);
+        a.setDuration(700);
+        a.addUpdateListener(an -> t.setText(an.getAnimatedValue() + suffix));
+        a.start();
+    }
+
+    /** Background task helper for non-Activity code (tabs). Results are posted to the main thread. */
+    public static <T> void async(final Task<T> t, final Cb<T> ok, final Cb<Exception> err) {
+        final com.gitpush.app.GitPushApp app = com.gitpush.app.GitPushApp.get();
+        app.io.execute(() -> {
+            try { final T r = t.run(); app.main.post(() -> { if (ok != null) ok.on(r); }); }
+            catch (final Exception e) { app.main.post(() -> { if (err != null) err.on(e); }); }
+        });
+    }
+
+    public static void pickList(Context c, String title, String[] labels, Cb<Integer> cb) {
+        new GlassDialog(c).setTitle(title).setItems(labels, (d, w) -> cb.on(w)).show();
     }
     public static TextView title(Context c, CharSequence t) { return text(c, t, 16, true, R.attr.gpText); }
     public static TextView body(Context c, CharSequence t) { return text(c, t, 13, false, R.attr.gpText); }
@@ -87,9 +148,11 @@ public final class Ui {
     public static Button button(Context c, String label, View.OnClickListener l) {
         Button b = new Button(c);
         b.setText(label); b.setAllCaps(false); b.setTextColor(color(c, R.attr.gpOnPrimary)); b.setBackgroundResource(R.drawable.bg_btn_primary);
-        b.setTypeface(b.getTypeface(), Typeface.BOLD);
+        Typeface f = font(c, true);
+        if (f != null) b.setTypeface(f);
         b.setPadding(dp(c, 22), dp(c, 12), dp(c, 22), dp(c, 12)); b.setStateListAnimator(null);
-        b.setOnClickListener(v -> { haptic(v); l.onClick(v); });
+        if (l != null) b.setOnClickListener(v -> { haptic(v); l.onClick(v); });
+        pressable(b);
         return b;
     }
 
@@ -97,14 +160,15 @@ public final class Ui {
         Button b = new Button(c);
         b.setText(label); b.setAllCaps(false); b.setTextColor(color(c, R.attr.gpPrimary)); b.setBackgroundResource(R.drawable.bg_btn_outline);
         b.setPadding(dp(c, 18), dp(c, 10), dp(c, 18), dp(c, 10)); b.setStateListAnimator(null);
-        b.setOnClickListener(v -> { haptic(v); l.onClick(v); });
+        if (l != null) b.setOnClickListener(v -> { haptic(v); l.onClick(v); });
+        pressable(b);
         return b;
     }
 
     public static Button textButton(Context c, String label, int colorAttr, View.OnClickListener l) {
         Button b = new Button(c);
         b.setText(label); b.setAllCaps(false); b.setTextColor(color(c, colorAttr)); b.setBackground(null); b.setStateListAnimator(null);
-        b.setMinWidth(0); b.setMinimumWidth(0); b.setOnClickListener(l);
+        b.setMinWidth(0); b.setMinimumWidth(0); if (l != null) b.setOnClickListener(l);
         return b;
     }
 
@@ -113,6 +177,7 @@ public final class Ui {
         l.setBackgroundResource(R.drawable.bg_glass);
         int p = dp(c, 16);
         l.setPadding(p, p, p, p);
+        pressable(l);
         return l;
     }
 
@@ -182,16 +247,18 @@ public final class Ui {
     }
 
     public static void confirm(Context c, String title, String msg, String posLabel, Runnable onYes) {
-        new AlertDialog.Builder(c).setTitle(title).setMessage(msg)
+        new GlassDialog(c).setTitle(title).setMessage(msg).setIcon("❓")
+                .setPositiveButton(posLabel, (d, w) -> onYes.run()).setNegativeButton("Cancel", null).show();
+    }
+
+    public static void confirmDanger(Context c, String title, String msg, String posLabel, Runnable onYes) {
+        new GlassDialog(c).setTitle(title).setMessage(msg).setIcon("⚠").setDanger(true)
                 .setPositiveButton(posLabel, (d, w) -> onYes.run()).setNegativeButton("Cancel", null).show();
     }
 
     public static void prompt(Context c, String title, String hint, String initial, Cb<String> onOk) {
         final EditText e = input(c, hint, initial);
-        LinearLayout box = vbox(c);
-        box.setPadding(dp(c, 20), dp(c, 8), dp(c, 20), 0);
-        box.addView(e, lp(MATCH, WRAP));
-        new AlertDialog.Builder(c).setTitle(title).setView(box)
+        new GlassDialog(c).setTitle(title).setIcon("✏").setView(e)
                 .setPositiveButton("OK", (d, w) -> onOk.on(e.getText().toString())).setNegativeButton("Cancel", null).show();
     }
 

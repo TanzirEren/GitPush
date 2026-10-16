@@ -80,6 +80,16 @@ public abstract class BaseActivity extends AppCompatActivity {
         return t;
     }
 
+    @Override public void startActivity(android.content.Intent i) {
+        super.startActivity(i);
+        overridePendingTransition(R.anim.slide_in_right, R.anim.fade_out_soft);
+    }
+
+    @Override public void finish() {
+        super.finish();
+        overridePendingTransition(R.anim.fade_in_soft, R.anim.slide_out_right);
+    }
+
     protected boolean alive() { return !isFinishing() && !isDestroyed(); }
 
     protected <T> void async(Ui.Task<T> task, Ui.Cb<T> ok, Ui.Cb<Exception> err) {

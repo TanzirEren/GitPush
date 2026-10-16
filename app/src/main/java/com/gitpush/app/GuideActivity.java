@@ -18,16 +18,16 @@ public class GuideActivity extends BaseActivity {
             {"Copy the Client ID", "On the same page copy the 'Client ID'. You do NOT need the client secret – never put it in a mobile app."},
             {"Paste it in GitPush", "On the login screen choose 'GitHub OAuth', paste the Client ID and tap 'Continue with GitHub'."},
             {"Authorize with the code", "GitPush shows a short code. Tap 'Copy code & open GitHub', paste the code on the GitHub page, press Continue and then Authorize. Return to GitPush – you are signed in automatically."},
-            {"Good to know", "GitPush requests the 'repo' scope so it can push to your public and private repositories. You can revoke access any time in GitHub → Settings → Applications."}
+            {"Good to know", "GitPush requests these scopes: repo, workflow, delete_repo, read:org and user – so it can push, run Actions, publish releases and manage repositories. You can revoke access any time in GitHub → Settings → Applications."}
     };
     private static final String[][] PAT = {
-            {"Open the token page", "Sign in to GitHub in your browser and open Settings → Developer settings → Personal access tokens.", "https://github.com/settings/tokens/new?scopes=repo&description=GitPush", "Open 'New token (classic)'"},
-            {"Choose a token type", "Easiest: 'Tokens (classic)' → Generate new token (classic). Advanced: 'Fine-grained tokens' limited to selected repositories."},
-            {"Name it & set expiry", "Note: GitPush. Expiration: choose 30/90 days or custom – shorter is safer."},
-            {"Select permissions", "Classic: tick the 'repo' scope (full control of private repositories). Fine-grained: select the repositories and set 'Contents' to Read and write, 'Metadata' to Read-only."},
-            {"Generate and copy", "Tap 'Generate token'. Copy it immediately – GitHub shows it only once (it starts with ghp_ or github_pat_)."},
-            {"Paste it in GitPush", "On the login screen choose 'Access Token', paste the token and tap 'Sign in'. GitPush verifies it with GitHub and stores it encrypted on your device."},
-            {"Troubleshooting", "401 = token wrong/expired. 403 = missing permission or SSO not authorized (for organization repos open the token page and tap 'Configure SSO' → Authorize). 404 on a private repo = the token cannot see that repository."}
+            {"Open the classic token page", "Sign in to GitHub in your browser. The button below opens Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token with the right scopes already ticked.", "https://github.com/settings/tokens/new?scopes=repo,workflow,delete_repo,read:org,user,gist&description=GitPush", "Open 'New token (classic)' with scopes"},
+            {"Why a classic token?", "GitPush works best with a **classic** token: one token covers all your repositories, organizations and every feature (upload, Actions, releases, delete). Fine-grained tokens are per-repository and cannot do everything."},
+            {"Name it & set expiry", "Note: GitPush. Expiration: 30 / 90 days, or 'No expiration' if you accept the risk. Shorter is safer – you can always generate a new one."},
+            {"Tick these scopes", "✅ repo – full control of repositories (upload files, commits, branches, releases, Actions artifacts)\n✅ workflow – create/update files in .github/workflows and run workflows\n✅ delete_repo – delete repositories from the app\n✅ read:org – list repositories that belong to your organizations\n✅ user – read your profile (name, avatar)\n☑ gist – optional\n\nIf you use the prefilled link they are already ticked – just double-check them."},
+            {"Generate and copy", "Scroll down and tap 'Generate token'. Copy it immediately – GitHub shows it only once. It starts with ghp_ ."},
+            {"Paste it in GitPush", "On the login screen choose 'Access Token', paste the token and tap 'Sign in'. GitPush verifies it with GitHub and stores it encrypted on your device (Android Keystore). Your granted scopes are shown in Profile → App permissions."},
+            {"Troubleshooting", "401 = token wrong, expired or revoked. 403 = a scope is missing (for example 'workflow' when pushing .github/workflows files) or the organization needs SSO: open the token page → 'Configure SSO' → Authorize. 404 on a private repo = the token cannot see that repository."}
     };
 
     @Override protected void onCreate(Bundle b) {

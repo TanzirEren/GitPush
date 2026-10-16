@@ -12,12 +12,12 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.Models.Repo;
+import com.gitpush.app.ui.Downloader;
 import com.gitpush.app.ui.Ui;
 import com.gitpush.app.util.PathUtils;
 
@@ -73,7 +73,7 @@ class ReposTab {
             public int getCount() { return shown.size(); }
             public Object getItem(int i) { return shown.get(i); }
             public long getItemId(int i) { return i; }
-            public View getView(int i, View cv, ViewGroup p) { return row(shown.get(i)); }
+            public View getView(int i, View cv, ViewGroup p) { View v = row(shown.get(i)); if (cv == null) Ui.fadeIn(v, i); return v; }
         };
         list.setAdapter(adapter);
         view.addView(list, new LinearLayout.LayoutParams(Ui.MATCH, 0, 1f));
@@ -106,6 +106,9 @@ class ReposTab {
             if (!q.isEmpty() && !r.fullName.toLowerCase().contains(q)) continue;
             shown.add(r);
         }
+        List<Repo> favs = new ArrayList<>(), rest = new ArrayList<>();
+        for (Repo r : shown) (st.isFavorite(r.fullName) ? favs : rest).add(r);
+        shown.clear(); shown.addAll(favs); shown.addAll(rest);
         adapter.notifyDataSetChanged();
         if (st.reposLoading && st.repos.isEmpty()) { status.setText("Loading repositories…"); status.setVisibility(View.VISIBLE); }
         else if (st.reposError != null && st.repos.isEmpty()) { status.setText("Couldn't load repositories\n" + st.reposError); status.setVisibility(View.VISIBLE); }
@@ -124,7 +127,7 @@ class ReposTab {
         h.addView(ic);
         LinearLayout t = Ui.vbox(a);
         t.setPadding(Ui.dp(a, 12), 0, 0, 0);
-        TextView n = Ui.title(a, r.name);
+        TextView n = Ui.title(a, (a.getAppState().isFavorite(r.fullName) ? "⭐ " : "") + r.name);
         n.setSingleLine(true);
         t.addView(n);
         if (r.description != null && !a.getAppState().compact) { TextView d = Ui.muted(a, r.description); d.setSingleLine(true); t.addView(d); }
@@ -148,22 +151,84 @@ class ReposTab {
         return wrap;
     }
 
-    private void menu(View anchor, Repo r) {
-        PopupMenu pm = new PopupMenu(a, anchor);
-        String[] items = {"Upload files", "Browse files", "Commit history", "Details & permissions", "Copy clone URL", "Open on GitHub"};
-        for (int i = 0; i < items.length; i++) pm.getMenu().add(0, i, i, items[i]);
-        pm.setOnMenuItemClickListener(it -> {
-            switch (it.getItemId()) {
+    private void menu(View anchor, final Repo r) {
+        final AppState st = a.getAppState();
+        final boolean fav = st.isFavorite(r.fullName);
+        final String[] items = {"⬆  Upload files", "📂  Browse files", "🕘  Commit history", "⚡  GitHub Actions", "🏷  Releases", "✨  AI README writer",
+                fav ? "☆  Remove from favorites" : "⭐  Add to favorites", "✏  Edit repo info", "🏷  Topics", "⬇  Download ZIP", "ℹ  Details & permissions",
+                "🔗  Copy clone URL", "🌐  Open on GitHub", "🗑  Delete repository"};
+        Ui.pickList(a, r.fullName, items, i -> {
+            switch (i) {
                 case 0: UploadActivity.open(a, r.owner, r.name); break;
-                case 1: a.getAppState().browserBranch = null; BrowserActivity.open(a, r.owner, r.name); break;
-                case 2: a.getAppState().browserBranch = null; CommitsActivity.open(a, r.owner, r.name); break;
-                case 3: details(r); break;
-                case 4: Ui.copy(a, "Clone URL", r.cloneUrl); Ui.toast(a, "Copied"); break;
-                default: Ui.openUrl(a, r.htmlUrl);
+                case 1: st.browserBranch = null; BrowserActivity.open(a, r.owner, r.name); break;
+                case 2: st.browserBranch = null; CommitsActivity.open(a, r.owner, r.name); break;
+                case 3: ActionsActivity.open(a, r.owner, r.name); break;
+                case 4: ReleasesActivity.open(a, r.owner, r.name); break;
+                case 5: AiReadmeActivity.open(a, r.owner, r.name); break;
+                case 6: st.toggleFavorite(r.fullName); render(); Ui.toast(a, fav ? "Removed from favorites" : "Added to favorites"); break;
+                case 7: editInfo(r); break;
+                case 8: topics(r); break;
+                case 9: Downloader.request(a, st.api(), "/repos/" + r.owner + "/" + r.name + "/zipball/" + r.defaultBranch, r.name + "-" + r.defaultBranch + ".zip"); break;
+                case 10: details(r); break;
+                case 11: Ui.copy(a, "Clone URL", r.cloneUrl); Ui.toast(a, "Copied"); break;
+                case 12: Ui.openUrl(a, r.htmlUrl); break;
+                default: deleteRepo(r);
             }
-            return true;
         });
-        pm.show();
+    }
+
+    private void replaceRepo(Repo nr) {
+        List<Repo> list = a.getAppState().repos;
+        for (int i = 0; i < list.size(); i++) if (list.get(i).id == nr.id) list.set(i, nr);
+        render();
+    }
+
+    private void editInfo(final Repo r) {
+        LinearLayout box = Ui.vbox(a);
+        final EditText name = Ui.input(a, "Repository name", r.name);
+        final EditText desc = Ui.input(a, "Description", r.description == null ? "" : r.description);
+        final CheckBox priv = new CheckBox(a);
+        priv.setText("Private"); priv.setChecked(r.isPrivate); priv.setTextColor(Ui.color(a, R.attr.gpText));
+        name.setSingleLine(true);
+        box.addView(name, Ui.lp(Ui.MATCH, Ui.WRAP));
+        box.addView(desc, Ui.lp(a, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+        box.addView(priv, Ui.lp(a, Ui.MATCH, Ui.WRAP, 0, 6, 0, 0));
+        new GlassDialog(a).setTitle("Edit repository").setIcon("✏").setView(box).setPositiveButton("Save", (d, w) -> {
+            final org.json.JSONObject patch = new org.json.JSONObject();
+            try { patch.put("name", name.getText().toString().trim().replace(' ', '-')).put("description", desc.getText().toString().trim()).put("private", priv.isChecked()); } catch (Exception ignored) { }
+            final com.gitpush.app.data.GitHubApi api = a.getAppState().api();
+            Ui.async(() -> api.updateRepo(r.owner, r.name, patch), nr -> { replaceRepo(nr); Ui.toast(a, "Repository updated"); }, e -> Ui.toast(a, e.getMessage()));
+        }).setNegativeButton("Cancel", null).show();
+    }
+
+    private void topics(final Repo r) {
+        final com.gitpush.app.data.GitHubApi api = a.getAppState().api();
+        Ui.async(() -> api.topics(r.owner, r.name), list -> {
+            StringBuilder sb = new StringBuilder();
+            for (String t : list) { if (sb.length() > 0) sb.append(", "); sb.append(t); }
+            Ui.prompt(a, "Topics (comma separated)", "android, java, github", sb.toString(), text -> {
+                final List<String> names = new ArrayList<>();
+                for (String t : text.split(",")) { String n = t.trim().toLowerCase().replace(' ', '-'); if (!n.isEmpty()) names.add(n); }
+                Ui.async(() -> { api.setTopics(r.owner, r.name, names); return "ok"; }, x -> Ui.toast(a, "Topics saved"), e -> Ui.toast(a, e.getMessage()));
+            });
+        }, e -> Ui.toast(a, e.getMessage()));
+    }
+
+    private void deleteRepo(final Repo r) {
+        LinearLayout box = Ui.vbox(a);
+        box.addView(Ui.muted(a, "This permanently deletes " + r.fullName + " with all its files, issues and releases. Needs the delete_repo token scope.\n\nType the repository name to confirm:"));
+        final EditText in = Ui.input(a, r.name, "");
+        in.setSingleLine(true);
+        box.addView(in, Ui.lp(a, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+        new GlassDialog(a).setTitle("Delete repository?").setIcon("⚠").setDanger(true).setView(box).setPositiveButton("Delete forever", (d, w) -> {
+            if (!in.getText().toString().trim().equals(r.name)) { Ui.toast(a, "Name does not match – nothing deleted"); return; }
+            final com.gitpush.app.data.GitHubApi api = a.getAppState().api();
+            Ui.async(() -> { api.deleteRepo(r.owner, r.name); return "ok"; }, x -> {
+                List<Repo> list = a.getAppState().repos;
+                for (int i = list.size() - 1; i >= 0; i--) if (list.get(i).id == r.id) list.remove(i);
+                render(); Ui.toast(a, "Repository deleted");
+            }, e -> Ui.toast(a, e.getMessage()));
+        }).setNegativeButton("Cancel", null).show();
     }
 
     private void details(Repo r) {
@@ -175,7 +240,7 @@ class ReposTab {
                 + "\nLanguage: " + (r.language == null ? "–" : r.language) + "   ★ " + r.stars
                 + "\n\nYour permission: " + (r.isAdmin ? "Admin" : r.canPush ? "Write (can push)" : "Read only – pushing will fail")
                 + "\nToken scopes: " + (scopes.isEmpty() ? "fine-grained / not reported" : scopes);
-        new AlertDialog.Builder(a).setTitle(r.fullName).setMessage(msg).setPositiveButton("Close", null).show();
+        new GlassDialog(a).setTitle(r.fullName).setMessage(msg).setPositiveButton("Close", null).show();
     }
 
     private void createDialog() {
@@ -188,7 +253,7 @@ class ReposTab {
         box.addView(name, Ui.lp(Ui.MATCH, Ui.WRAP));
         box.addView(desc, Ui.lp(a, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
         box.addView(priv);
-        new AlertDialog.Builder(a).setTitle("New repository").setView(box)
+        new GlassDialog(a).setTitle("New repository").setView(box)
                 .setPositiveButton("Create", (d, w) -> {
                     String n = name.getText().toString().trim().replace(' ', '-');
                     if (n.isEmpty()) { Ui.toast(a, "Enter a name"); return; }

@@ -25,6 +25,7 @@ public class Store {
     public final SharedPreferences prefs;
     private String memAccounts = "[]";
     private String memActive = "";
+    private String memAiKey = "";
 
     public Store(Context ctx) {
         this.ctx = ctx.getApplicationContext();
@@ -86,6 +87,20 @@ public class Store {
     public void onboardingDone(boolean v) { prefs.edit().putBoolean("onboarding_done", v).apply(); }
     public String clientId() { return prefs.getString("client_id", ""); }
     public void clientId(String v) { prefs.edit().putString("client_id", v).apply(); }
+
+    // ---- AI assistant (key is stored encrypted) ----
+    public String aiProvider() { return prefs.getString("ai_provider", "anthropic"); }
+    public String aiBase() { return prefs.getString("ai_base", "https://api.anthropic.com"); }
+    public String aiModel() { return prefs.getString("ai_model", "claude-sonnet-5-5"); }
+    public String aiKey() { return secure != null ? secure.getString("ai_key", "") : memAiKey; }
+    public void aiConfig(String provider, String base, String model, String key) {
+        prefs.edit().putString("ai_provider", provider).putString("ai_base", base).putString("ai_model", model).apply();
+        if (secure != null) secure.edit().putString("ai_key", key).apply(); else memAiKey = key;
+    }
+
+    // ---- favourite repos ----
+    public java.util.Set<String> favorites() { return new java.util.HashSet<>(prefs.getStringSet("favorites", new java.util.HashSet<>())); }
+    public void favorites(java.util.Set<String> v) { prefs.edit().putStringSet("favorites", v).apply(); }
 
     // ---- upload history (not secret) ----
     public List<HistoryEntry> loadHistory() {

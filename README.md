@@ -81,6 +81,34 @@ It is built for people who develop on their phone (or just need to drop files in
 - Image preview and Markdown preview
 - Download a file, copy path / raw URL, per-file history
 
+### 🗜️ Advanced ZIP extractor (new in 1.1)
+- Opens the ZIP **without extracting everything first** and lists every file path
+- Choose the **root folder** to upload from – e.g. `Buildora-v2.0.0/Buildora/others` → start at `Buildora/` or `others/`
+- One-tap "Start at …" chips for nested wrapper folders, **strip N folders**, add a folder prefix
+- Filters: exclude / include globs (`*.class, build/, node_modules`), skip hidden files, skip junk (`.DS_Store`, `__MACOSX`), flatten
+- Per-file path review (original → upload path), size, search, select all / none / invert, long-press for full path, share the path list
+
+### ⚡ GitHub Actions (new in 1.1)
+- Workflow runs with live status (auto-refresh while running), jobs and steps
+- Re-run all / failed jobs, cancel, delete runs
+- **Download artifacts** (your APK) and logs straight to your phone
+- Run a workflow (`workflow_dispatch`), enable / disable workflows
+
+### 🏷️ Releases (new in 1.1)
+- Create / edit / publish drafts, pre-releases, delete
+- Notes: template, GitHub auto-generated, or ✨ AI-written from your commits
+- Upload assets (APK, ZIP …) with progress, manage and delete assets
+
+### ✨ AI assistant – bring your own key (new in 1.1)
+- **AI README writer**: reads the file tree + key files, writes a README (style + language options), preview / edit / commit
+- AI commit messages and AI release notes
+- Works with Claude (Anthropic), OpenAI, Gemini, Groq, OpenRouter or any OpenAI-compatible API; key stored encrypted
+
+### 🧰 More tools (new in 1.1)
+- Favorite repos, edit repo info, topics, download repo ZIP, delete repo (type-to-confirm)
+- Glass dashboard: 7-day push chart, latest build status, API rate-limit, quick actions
+- Animated glass dialogs and screen transitions
+
 ### 🕘 History & tools
 - Commit list, commit details and coloured diff viewer
 - Revert a commit (single-parent commits)
@@ -115,8 +143,9 @@ Choose one of the two methods on the login screen. The app also contains detaile
 ### Option A – Personal Access Token (fastest)
 1. GitHub → **Settings → Developer settings → Personal access tokens**.
 2. Create a token:
-   - *Classic*: tick the **`repo`** scope.
-   - *Fine-grained*: select your repositories, set **Contents → Read and write**, **Metadata → Read-only**.
+   - *Classic (recommended)*: tick **`repo`**, **`workflow`**, **`delete_repo`**, **`read:org`** and **`user`**
+     (the in-app guide opens GitHub with these already ticked).
+   - *Fine-grained*: select your repositories, set **Contents → Read and write**, **Metadata → Read-only** (some features need more).
 3. Copy the token (GitHub shows it only once).
 4. In GitPush choose **Access Token**, paste it and tap **Sign in**.
 
@@ -252,6 +281,8 @@ app/src/main/java/com/gitpush/app/
 │   ├── OAuthDevice.java    # OAuth Device Flow
 │   ├── Pusher.java         # Push engine (blobs → tree → one commit)
 │   ├── Stager.java         # Files / folders / ZIP staging + tree model
+│   ├── ZipTools.java       # Random-access ZIP listing + selective extraction
+│   ├── AiClient.java       # Anthropic / OpenAI-compatible client
 │   ├── GitOps.java         # Multi-file delete, rename, revert
 │   ├── Store.java          # Encrypted token + settings storage
 │   └── Models.java         # Data classes
@@ -259,12 +290,15 @@ app/src/main/java/com/gitpush/app/
 │   ├── BaseActivity.java   # Header, theming, async helper
 │   ├── Ui.java             # View builders and dialogs
 │   ├── Rich.java           # Syntax colours, Markdown, diff rendering
+│   ├── GlassDialog.java    # Animated glass dialogs
 │   └── ImageLoader.java    # Avatar loader
 ├── util/                   # Pure helpers (unit tested)
 ├── SplashActivity / OnboardingActivity / LoginActivity / GuideActivity
 ├── MainActivity + HomeTab / ReposTab / ProfileTab
 ├── UploadActivity / BrowserActivity / FileViewerActivity
 ├── CommitsActivity / CommitDetailActivity / ToolsActivity
+├── ZipActivity             # Advanced ZIP extractor
+├── ActionsActivity / ReleasesActivity / ReleaseEditActivity / AiReadmeActivity
 ├── ShareActivity           # "Share to GitPush" entry point
 └── AppState / GitPushApp / Notifier
 app/src/main/res/           # theme, glass drawables, icons, Poppins fonts
@@ -291,7 +325,7 @@ app/src/test/               # JVM unit tests
 | Problem | What to do |
 |---|---|
 | `401` Token invalid / expired | Create a new token and sign in again |
-| `403` Permission denied | Token lacks `repo` / Contents write, or the organisation needs **SSO authorization** |
+| `403` Permission denied | Token lacks a scope (`repo`, `workflow` for .github/workflows files, `delete_repo`), or the organisation needs **SSO authorization** |
 | `404` on a private repo | The token cannot see that repository – check its repository access |
 | `422` Validation failed | Invalid path or a file/folder name clash in the repo |
 | OAuth says "Device Flow" error | Enable **Device Flow** in your OAuth App settings |

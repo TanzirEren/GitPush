@@ -16,11 +16,10 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.GitHubApi;
 import com.gitpush.app.data.GitOps;
@@ -166,11 +165,9 @@ public class FileViewerActivity extends BaseActivity {
     }
 
     private void menu(View anchor) {
-        PopupMenu pm = new PopupMenu(this, anchor);
-        String[] items = {"Copy path", "Copy raw URL", "Download", "Rename / move", "File history", "Delete"};
-        for (int i = 0; i < items.length; i++) pm.getMenu().add(0, i, i, items[i]);
-        pm.setOnMenuItemClickListener(it -> {
-            switch (it.getItemId()) {
+        String[] items = {"📋  Copy path", "🔗  Copy raw URL", "⬇  Download", "✏  Rename / move", "🕘  File history", "🗑  Delete"};
+        Ui.pickList(this, name, items, i -> {
+            switch (i) {
                 case 0: Ui.copy(this, "path", path); Ui.toast(this, "Path copied"); break;
                 case 1: Ui.copy(this, "url", "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + branch + "/" + path); Ui.toast(this, "Raw URL copied"); break;
                 case 2: startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_TITLE, name), REQ_SAVE); break;
@@ -178,9 +175,7 @@ public class FileViewerActivity extends BaseActivity {
                 case 4: history(); break;
                 default: delete();
             }
-            return true;
         });
-        pm.show();
     }
 
     @Override protected void onActivityResult(int req, int res, Intent data) {
@@ -200,7 +195,7 @@ public class FileViewerActivity extends BaseActivity {
     }
 
     private void delete() {
-        Ui.confirm(this, "Delete " + name + "?", "The file is deleted from '" + branch + "' with a commit. You can revert it later from history.", "Delete", () ->
+        Ui.confirmDanger(this, "Delete " + name + "?", "The file is deleted from '" + branch + "' with a commit. You can revert it later from history.", "Delete", () ->
                 async(() -> { api.deleteFile(owner, repo, path, sha, "Delete " + path, branch); return "ok"; }, r -> { Ui.toast(this, "Deleted"); finish(); }, e -> Ui.toast(this, msg(e))));
     }
 
@@ -209,7 +204,7 @@ public class FileViewerActivity extends BaseActivity {
             if (list.isEmpty()) { Ui.toast(this, "No commits found"); return; }
             final String[] labels = new String[list.size()];
             for (int i = 0; i < labels.length; i++) labels[i] = list.get(i).firstLine() + "\n" + list.get(i).author + " • " + Ui.agoIso(list.get(i).date) + " • " + list.get(i).sha.substring(0, 7);
-            new AlertDialog.Builder(this).setTitle("File history").setItems(labels, (d, w) -> CommitDetailActivity.open(this, owner, repo, list.get(w).sha)).show();
+            new GlassDialog(this).setTitle("File history").setItems(labels, (d, w) -> CommitDetailActivity.open(this, owner, repo, list.get(w).sha)).show();
         }, e -> Ui.toast(this, msg(e)));
     }
 }

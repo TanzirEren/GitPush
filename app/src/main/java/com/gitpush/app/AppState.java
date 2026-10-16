@@ -46,6 +46,7 @@ public class AppState {
     public boolean sharedBanner, stageBusy;
 
     public PushSession session;
+    public final Set<String> favorites = new HashSet<>();
 
     public String viewerPath = "", viewerSha = "", viewerBranch = "", browserBranch;
 
@@ -60,6 +61,7 @@ public class AppState {
         for (Account a : accounts) if (a.login.equals(last)) active = a;
         if (active == null && !accounts.isEmpty()) active = accounts.get(0);
         history = new ArrayList<>(store.loadHistory());
+        favorites.addAll(store.favorites());
     }
 
     // ---------------------------------------------------------------- settings
@@ -123,9 +125,14 @@ public class AppState {
     }
 
     // ---------------------------------------------------------------- repos
+    private final List<Runnable> repoWaiters = new ArrayList<>();
+
     public void loadRepos(boolean force, Runnable done) {
-        if (active == null || reposLoading || (reposLoaded && !force)) { if (done != null && !reposLoading) done.run(); return; }
+        if (active == null) { if (done != null) done.run(); return; }
+        if (reposLoading) { if (done != null) repoWaiters.add(done); return; }
+        if (reposLoaded && !force) { if (done != null) done.run(); return; }
         reposLoading = true; reposError = null;
+        if (done != null) repoWaiters.add(done);
         final GitHubApi a = api();
         app.io.execute(() -> {
             List<Repo> list = null; String err = null;
@@ -134,7 +141,9 @@ public class AppState {
             app.main.post(() -> {
                 reposLoading = false;
                 if (fl != null) { repos.clear(); repos.addAll(fl); reposLoaded = true; } else reposError = fe;
-                if (done != null) done.run();
+                List<Runnable> w = new ArrayList<>(repoWaiters);
+                repoWaiters.clear();
+                for (Runnable r : w) r.run();
             });
         });
     }
@@ -142,6 +151,15 @@ public class AppState {
     public Repo findRepo(String owner, String name) {
         for (Repo r : repos) if (r.owner.equals(owner) && r.name.equals(name)) return r;
         return null;
+    }
+
+    public boolean isFavorite(String fullName) { return favorites.contains(fullName); }
+
+    public boolean toggleFavorite(String fullName) {
+        boolean on = !favorites.remove(fullName);
+        if (on) favorites.add(fullName);
+        store.favorites(favorites);
+        return on;
     }
 
     // ---------------------------------------------------------------- history
@@ -189,6 +207,8 @@ public class AppState {
     public void addFiles(List<Uri> uris, Runnable changed) { if (!uris.isEmpty()) stage(() -> Stager.filesFromUris(app, uris), changed); }
     public void addFolder(Uri uri, Runnable changed) { if (uri != null) stage(() -> Stager.folderFromTree(app, uri), changed); }
     public void addZip(Uri uri, Runnable changed) { if (uri != null) stage(() -> Stager.extractZip(app, uri), changed); }
+
+    public void addStagedFiles(List<StagedFile> list) { addStaged(list); }
 
     public void addGenerated(String path, String text) {
         byte[] b = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
