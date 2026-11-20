@@ -24,15 +24,15 @@ import java.util.regex.Pattern;
 public final class Rich {
     private Rich() {}
 
-    private static final Set<String> KEYWORDS = new HashSet<>(Arrays.asList(
+    public static final Set<String> KEYWORDS = new HashSet<>(Arrays.asList(
             "fun", "val", "var", "class", "object", "interface", "if", "else", "when", "for", "while", "return", "import", "package", "private", "public",
             "protected", "static", "final", "void", "new", "this", "null", "true", "false", "try", "catch", "throw", "throws", "override", "suspend", "const",
             "def", "function", "let", "async", "await", "export", "from", "in", "is", "as", "break", "continue", "extends", "implements", "int", "long",
             "string", "boolean", "lambda", "None", "True", "False", "elif", "except", "with", "pass", "struct", "enum", "switch", "case", "default", "do", "select"));
-    private static final Pattern TOKEN = Pattern.compile(
+    public static final Pattern TOKEN = Pattern.compile(
             "//.*|#.*|/\\*.*?\\*/|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|<!--.*?-->|</?[A-Za-z][\\w:.-]*|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b");
-    private static final Set<String> HASH_EXT = new HashSet<>(Arrays.asList("py", "sh", "yml", "yaml", "toml", "properties", "gitignore", "rb", "conf"));
-    private static final Set<String> MARKUP_EXT = new HashSet<>(Arrays.asList("xml", "html", "htm", "svg"));
+    public static final Set<String> HASH_EXT = new HashSet<>(Arrays.asList("py", "sh", "yml", "yaml", "toml", "properties", "gitignore", "rb", "conf"));
+    public static final Set<String> MARKUP_EXT = new HashSet<>(Arrays.asList("xml", "html", "htm", "svg"));
 
     public static final class CodeColors {
         public final int comment, string, number, keyword, tag;

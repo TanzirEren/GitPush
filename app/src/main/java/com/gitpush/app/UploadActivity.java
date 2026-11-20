@@ -74,7 +74,7 @@ public class UploadActivity extends BaseActivity {
         owner = getIntent().getStringExtra("owner");
         repoName = getIntent().getStringExtra("repo");
         buildScreen(repoName, owner, true);
-        addTextAction("Browse", v -> { st.browserBranch = branch.isEmpty() ? null : branch; BrowserActivity.open(this, owner, repoName); });
+        addTextAction("Code IDE", v -> { st.browserBranch = branch.isEmpty() ? null : branch; IdeActivity.open(this, owner, repoName, null); });
 
         LinearLayout page = Ui.vbox(this);
         listView = new ListView(this);
@@ -160,6 +160,7 @@ public class UploadActivity extends BaseActivity {
             pickBox.addView(Ui.button(this, "🗜  Advanced ZIP extractor", v -> pick(REQ_ZIP_ADV)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
             pickBox.addView(Ui.muted(this, "Choose which inner folder to upload from, strip folders, filter files and review every path before adding."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
             pickBox.addView(Ui.outlineButton(this, "⚡ Quick extract (everything)", v -> pick(REQ_ZIP)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 10, 0, 0));
+            pickBox.addView(Ui.outlineButton(this, "📦 Upload ZIP / APK as a file (fastest)", v -> pick(REQ_FILES)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
         }
     }
 
@@ -400,6 +401,13 @@ public class UploadActivity extends BaseActivity {
             if (sk > 0) d.append(sk).append(" skipped (unchanged / existing).\n");
         } else if (ok) d.append("Every file is already identical in the repository.\n");
         if (s.error != null) d.append(s.error).append("\n\n");
+        if (s.running && s.uploadBytes > 0) {
+            long sp = s.speed(), eta = s.etaSeconds();
+            d.append(PathUtils.formatSize(s.bytesSent.get())).append(" / ").append(PathUtils.formatSize(s.uploadBytes));
+            if (sp > 0) d.append("  •  ").append(PathUtils.formatSize(sp)).append("/s");
+            if (eta >= 0) d.append("  •  ETA ").append(String.format(java.util.Locale.US, "%d:%02d", eta / 60, eta % 60));
+            d.append("\n\n");
+        }
         int[] state = s.snapState(); String[] note = s.snapNote();
         int shown = 0;
         for (int i = 0; i < state.length && shown < 40; i++) {
@@ -441,6 +449,7 @@ public class UploadActivity extends BaseActivity {
     @Override protected void onResume() {
         super.onResume();
         if (repo != null || st.staged.size() >= 0) renderAll();
+        if (st.autoPush && repo != null && !st.staged.isEmpty()) { st.autoPush = false; app.main.postDelayed(this::onPushClicked, 250); }
         if (st.session != null && repo != null && st.session.repo.fullName.equals(repo.fullName) && (pushDialog == null || !pushDialog.isShowing())) showPushDialog();
     }
 

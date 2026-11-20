@@ -66,6 +66,12 @@ public final class Pusher {
         final Set<String> textPaths = ConcurrentHashMap.newKeySet();
         volatile GitHubApi api;
         volatile Thread thread;
+        public final java.util.concurrent.atomic.AtomicLong bytesSent = new java.util.concurrent.atomic.AtomicLong();
+        public volatile long uploadBytes, startedAt;
+
+        /** Average upload speed in bytes/s and ETA seconds (-1 when unknown). */
+        public long speed() { long t = System.currentTimeMillis() - startedAt; return t <= 500 ? 0 : bytesSent.get() * 1000L / t; }
+        public long etaSeconds() { long sp = speed(); long left = uploadBytes - bytesSent.get(); return sp <= 0 || left <= 0 ? -1 : left / sp; }
 
         public PushSession(Repo repo, String branch, String targetDir, List<StagedFile> files, String message, String description) {
             this.repo = repo; this.branch = branch; this.targetDir = targetDir; this.files = files; this.message = message; this.description = description;
@@ -117,6 +123,7 @@ public final class Pusher {
     /** Blocking – run on a background thread. */
     public static void run(Context ctx, GitHubApi api, PushSession s) {
         s.running = true; s.error = null; s.finished = false; s.cancelled = false;
+        s.startedAt = System.currentTimeMillis(); s.bytesSent.set(0);
         s.api = api; s.thread = Thread.currentThread();
         try {
             execute(ctx, api, s);
@@ -205,7 +212,10 @@ public final class Pusher {
         s.phase = "Uploading files…";
         List<Integer> todo = new ArrayList<>();
         for (int i = 0; i < n; i++) if (s.stateOf(i) == PENDING) todo.add(i);
-        ExecutorService pool = Executors.newFixedThreadPool(3);
+        long ub = 0;
+        for (int i : todo) ub += s.sizes[i];
+        s.uploadBytes = ub;
+        ExecutorService pool = Executors.newFixedThreadPool(5);
         try {
             List<Future<?>> fs = new ArrayList<>();
             for (final int i : todo) fs.add(pool.submit(() -> uploadOne(ctx, api, s, i)));
@@ -270,9 +280,14 @@ public final class Pusher {
                 if (tryText(bytes) != null) { s.textPaths.add(path); s.set(i, UPLOADED, null); return; }
             }
             final byte[] fb = bytes;
+            final long[] last = {0};
+            GitHubApi.ProgressCb cb = (d, t) -> {
+                if (d < last[0]) { s.bytesSent.addAndGet(-last[0]); last[0] = 0; }
+                s.bytesSent.addAndGet(d - last[0]); last[0] = d;
+            };
             String sha = fb != null
-                    ? api.createBlob(s.repo.owner, s.repo.name, () -> new ByteArrayInputStream(fb))
-                    : api.createBlob(s.repo.owner, s.repo.name, () -> f.open(ctx));
+                    ? api.createBlob(s.repo.owner, s.repo.name, () -> new ByteArrayInputStream(fb), cb)
+                    : api.createBlob(s.repo.owner, s.repo.name, () -> f.open(ctx), cb);
             s.blobCache.put(path, sha);
             s.set(i, UPLOADED, null);
         } catch (Exception e) {

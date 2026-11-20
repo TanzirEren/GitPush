@@ -40,13 +40,14 @@ public class LoginActivity extends BaseActivity {
         root.setPadding(Ui.dp(this, 24), Ui.dp(this, 16), Ui.dp(this, 24), Ui.dp(this, 24));
         if (adding) {
             ImageView bk = new ImageView(this);
-            bk.setImageResource(R.drawable.ic_back);
+            bk.setImageResource(R.drawable.i_back);
             bk.setOnClickListener(v -> finish());
             bk.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8));
             root.addView(bk, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
         }
         ImageView logo = new ImageView(this);
-        logo.setImageResource(R.drawable.logo_mark);
+        logo.setImageResource(R.drawable.logo_mono);
+        logo.setColorFilter(Ui.color(this, R.attr.gpText));
         root.addView(logo, centered(Ui.dp(this, 76), Ui.dp(this, 76), 24, 0));
         TextView h = Ui.text(this, "Welcome to GitPush", 24, true, R.attr.gpText);
         root.addView(h, centered(Ui.WRAP, Ui.WRAP, 12, 0));

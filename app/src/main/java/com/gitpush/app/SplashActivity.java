@@ -29,7 +29,8 @@ public class SplashActivity extends BaseActivity {
         ring.setAlpha(0f);
         logoBox.addView(ring, new FrameLayout.LayoutParams(big, big, Gravity.CENTER));
         ImageView logo = new ImageView(this);
-        logo.setImageResource(R.drawable.logo_mark);
+        logo.setImageResource(R.drawable.logo_mono);
+        logo.setColorFilter(Ui.color(this, R.attr.gpText));
         logo.setScaleX(0.5f); logo.setScaleY(0.5f); logo.setAlpha(0f);
         logoBox.addView(logo, new FrameLayout.LayoutParams(Ui.dp(this, 130), Ui.dp(this, 130), Gravity.CENTER));
         root.addView(logoBox, Ui.lp(big, big));

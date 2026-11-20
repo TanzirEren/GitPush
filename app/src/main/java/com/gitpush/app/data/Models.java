@@ -19,7 +19,7 @@ public final class Models {
     public static class Repo {
         public long id;
         public String name, fullName, owner, description, defaultBranch, htmlUrl, cloneUrl, updatedAt, language;
-        public boolean isPrivate, canPush, isAdmin;
+        public boolean isPrivate, canPush, isAdmin, archived;
         public int stars, sizeKb;
     }
 
@@ -132,13 +132,13 @@ public final class Models {
     // ---------------------------------------------------------------- Actions
     public static class Run {
         public long id, workflowId;
-        public String name, title, status, conclusion, branch, event, sha, htmlUrl, createdAt, actor;
+        public String name, title, status, conclusion, branch, event, sha, htmlUrl, createdAt, actor, startedAt, updatedAt;
         public int number, attempt;
         public boolean active() { return "in_progress".equals(status) || "queued".equals(status) || "waiting".equals(status) || "pending".equals(status) || "requested".equals(status); }
     }
 
     public static class Step {
-        public String name, status, conclusion;
+        public String name, status, conclusion, startedAt, completedAt;
         public int number;
     }
 
@@ -157,6 +157,10 @@ public final class Models {
     public static class Workflow {
         public long id;
         public String name, path, state;
+    }
+
+    public static class SecretInfo {
+        public String name, value, updatedAt;
     }
 
     // ---------------------------------------------------------------- Releases

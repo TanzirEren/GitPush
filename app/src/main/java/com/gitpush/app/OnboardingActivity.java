@@ -20,7 +20,8 @@ public class OnboardingActivity extends BaseActivity {
             {"🔒", "Safe, fast & beautiful", "Tokens are stored with Android Keystore encryption. Multiple accounts, code editor, commit history and a glassy modern UI."}
     };
     private int index = 0;
-    private TextView emoji, title, text, next;
+    private android.widget.ImageView emoji;
+    private TextView title, text, next;
     private LinearLayout dots, pageBox;
 
     @Override protected void onCreate(Bundle b) {
@@ -35,9 +36,10 @@ public class OnboardingActivity extends BaseActivity {
         pageBox = Ui.vbox(this);
         pageBox.setGravity(Gravity.CENTER);
         pageBox.setPadding(Ui.dp(this, 32), 0, Ui.dp(this, 32), 0);
-        emoji = Ui.text(this, "", 64, false, R.attr.gpText);
-        emoji.setGravity(Gravity.CENTER);
+        emoji = new android.widget.ImageView(this);
         emoji.setBackgroundResource(R.drawable.bg_circle);
+        emoji.setColorFilter(Ui.color(this, R.attr.gpText));
+        emoji.setPadding(Ui.dp(this, 54), Ui.dp(this, 54), Ui.dp(this, 54), Ui.dp(this, 54));
         title = Ui.text(this, "", 24, true, R.attr.gpText);
         title.setGravity(Gravity.CENTER);
         text = Ui.text(this, "", 15, false, R.attr.gpMuted);
@@ -69,7 +71,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void show() {
         pageBox.setAlpha(0f); pageBox.setTranslationX(Ui.dp(this, 40));
-        emoji.setText(PAGES[index][0]); title.setText(PAGES[index][1]); text.setText(PAGES[index][2]);
+        emoji.setImageResource(com.gitpush.app.ui.Icons.resFor(PAGES[index][0], R.drawable.i_file)); title.setText(PAGES[index][1]); text.setText(PAGES[index][2]);
         pageBox.animate().alpha(1f).translationX(0).setDuration(280).start();
         next.setText(index == PAGES.length - 1 ? "Get started" : "Next");
         dots.removeAllViews();

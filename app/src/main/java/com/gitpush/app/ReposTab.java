@@ -122,7 +122,7 @@ class ReposTab {
         LinearLayout c = Ui.card(a);
         c.setPadding(Ui.dp(a, 14), Ui.dp(a, a.getAppState().compact ? 8 : 14), Ui.dp(a, 4), Ui.dp(a, a.getAppState().compact ? 8 : 14));
         LinearLayout h = Ui.hbox(a);
-        ImageView ic = Ui.icon(a, r.isPrivate ? R.drawable.ic_lock : R.drawable.ic_public, 22);
+        ImageView ic = Ui.icon(a, r.isPrivate ? R.drawable.i_lock : R.drawable.i_globe, 22);
         ic.setColorFilter(Ui.color(a, r.isPrivate ? R.attr.gpWarn : R.attr.gpOk));
         h.addView(ic);
         LinearLayout t = Ui.vbox(a);
@@ -140,7 +140,7 @@ class ReposTab {
         m.setSingleLine(true);
         t.addView(m);
         h.addView(t, Ui.weight(1f));
-        ImageView more = Ui.icon(a, R.drawable.ic_more, 24);
+        ImageView more = Ui.icon(a, R.drawable.i_more, 24);
         more.setPadding(Ui.dp(a, 8), Ui.dp(a, 8), Ui.dp(a, 8), Ui.dp(a, 8));
         more.setLayoutParams(Ui.lp(Ui.dp(a, 44), Ui.dp(a, 44)));
         more.setOnClickListener(v -> menu(v, r));
@@ -154,26 +154,65 @@ class ReposTab {
     private void menu(View anchor, final Repo r) {
         final AppState st = a.getAppState();
         final boolean fav = st.isFavorite(r.fullName);
-        final String[] items = {"⬆  Upload files", "📂  Browse files", "🕘  Commit history", "⚡  GitHub Actions", "🏷  Releases", "✨  AI README writer",
-                fav ? "☆  Remove from favorites" : "⭐  Add to favorites", "✏  Edit repo info", "🏷  Topics", "⬇  Download ZIP", "ℹ  Details & permissions",
-                "🔗  Copy clone URL", "🌐  Open on GitHub", "🗑  Delete repository"};
+        final String[] items = {"⬆  Upload files", "💻  Code IDE (browse & edit)", "🕘  Commit history", "⚡  GitHub Actions", "🏷  Releases", "🔑  Secrets & variables", "✨  AI README writer",
+                fav ? "☆  Remove from favorites" : "⭐  Add to favorites", "✏  Edit repo info", "✏  Rename repository", "📂  Default branch", r.archived ? "📦  Unarchive repository" : "📦  Archive repository",
+                "🏷  Topics", "⬇  Download ZIP", "ℹ  Details & permissions", "🔗  Copy clone URL", "🌐  Open on GitHub", "🗑  Delete repository"};
         Ui.pickList(a, r.fullName, items, i -> {
-            switch (i) {
-                case 0: UploadActivity.open(a, r.owner, r.name); break;
-                case 1: st.browserBranch = null; BrowserActivity.open(a, r.owner, r.name); break;
-                case 2: st.browserBranch = null; CommitsActivity.open(a, r.owner, r.name); break;
-                case 3: ActionsActivity.open(a, r.owner, r.name); break;
-                case 4: ReleasesActivity.open(a, r.owner, r.name); break;
-                case 5: AiReadmeActivity.open(a, r.owner, r.name); break;
-                case 6: st.toggleFavorite(r.fullName); render(); Ui.toast(a, fav ? "Removed from favorites" : "Added to favorites"); break;
-                case 7: editInfo(r); break;
-                case 8: topics(r); break;
-                case 9: Downloader.request(a, st.api(), "/repos/" + r.owner + "/" + r.name + "/zipball/" + r.defaultBranch, r.name + "-" + r.defaultBranch + ".zip"); break;
-                case 10: details(r); break;
-                case 11: Ui.copy(a, "Clone URL", r.cloneUrl); Ui.toast(a, "Copied"); break;
-                case 12: Ui.openUrl(a, r.htmlUrl); break;
-                default: deleteRepo(r);
-            }
+            String l = items[i];
+            if (l.contains("Upload files")) UploadActivity.open(a, r.owner, r.name);
+            else if (l.contains("Code IDE")) { st.browserBranch = null; IdeActivity.open(a, r.owner, r.name, null); }
+            else if (l.contains("Commit history")) { st.browserBranch = null; CommitsActivity.open(a, r.owner, r.name); }
+            else if (l.contains("GitHub Actions")) ActionsActivity.open(a, r.owner, r.name);
+            else if (l.contains("Releases")) ReleasesActivity.open(a, r.owner, r.name);
+            else if (l.contains("Secrets")) SecretsActivity.open(a, r.owner, r.name);
+            else if (l.contains("AI README")) AiReadmeActivity.open(a, r.owner, r.name);
+            else if (l.contains("favorites")) { st.toggleFavorite(r.fullName); render(); Ui.toast(a, fav ? "Removed from favorites" : "Added to favorites"); }
+            else if (l.contains("Edit repo info")) editInfo(r);
+            else if (l.contains("Rename")) rename(r);
+            else if (l.contains("Default branch")) defaultBranch(r);
+            else if (l.contains("rchive")) archive(r);
+            else if (l.contains("Topics")) topics(r);
+            else if (l.contains("Download ZIP")) Downloader.request(a, st.api(), "/repos/" + r.owner + "/" + r.name + "/zipball/" + r.defaultBranch, r.name + "-" + r.defaultBranch + ".zip");
+            else if (l.contains("Details")) details(r);
+            else if (l.contains("clone URL")) { Ui.copy(a, "Clone URL", r.cloneUrl); Ui.toast(a, "Copied"); }
+            else if (l.contains("Open on GitHub")) Ui.openUrl(a, r.htmlUrl);
+            else deleteRepo(r);
+        });
+    }
+
+    private void patch(final Repo r, final org.json.JSONObject patch, final String okMsg) {
+        final com.gitpush.app.data.GitHubApi api = a.getAppState().api();
+        Ui.async(() -> api.updateRepo(r.owner, r.name, patch), nr -> { replaceRepo(nr); Ui.toast(a, okMsg); }, e -> Ui.toast(a, e.getMessage()));
+    }
+
+    private void rename(final Repo r) {
+        Ui.prompt(a, "Rename repository", "new-name", r.name, n -> {
+            String nn = n.trim().replace(' ', '-');
+            if (nn.isEmpty() || nn.equals(r.name)) return;
+            org.json.JSONObject p = new org.json.JSONObject();
+            try { p.put("name", nn); } catch (Exception ignored) { }
+            patch(r, p, "Renamed to " + nn);
+        });
+    }
+
+    private void defaultBranch(final Repo r) {
+        final com.gitpush.app.data.GitHubApi api = a.getAppState().api();
+        Ui.async(() -> api.branches(r.owner, r.name), list -> {
+            final String[] names = new String[list.size()];
+            for (int i = 0; i < names.length; i++) names[i] = (list.get(i).name.equals(r.defaultBranch) ? "✓  " : "      ") + list.get(i).name;
+            Ui.pickList(a, "Default branch", names, i -> {
+                org.json.JSONObject p = new org.json.JSONObject();
+                try { p.put("default_branch", list.get(i).name); } catch (Exception ignored) { }
+                patch(r, p, "Default branch is now " + list.get(i).name);
+            });
+        }, e -> Ui.toast(a, e.getMessage()));
+    }
+
+    private void archive(final Repo r) {
+        Ui.confirm(a, (r.archived ? "Unarchive " : "Archive ") + r.name + "?", r.archived ? "The repository becomes writable again." : "The repository becomes read-only until you unarchive it.", r.archived ? "Unarchive" : "Archive", () -> {
+            org.json.JSONObject p = new org.json.JSONObject();
+            try { p.put("archived", !r.archived); } catch (Exception ignored) { }
+            patch(r, p, r.archived ? "Repository unarchived" : "Repository archived");
         });
     }
 

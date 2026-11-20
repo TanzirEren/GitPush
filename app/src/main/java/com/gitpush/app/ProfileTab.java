@@ -23,20 +23,20 @@ import java.util.List;
 
 class ProfileTab {
     static final String[] FEATURES = {
-            "GitHub OAuth (Device Flow) & classic Personal Access Token login", "Multiple accounts with instant switching", "Encrypted token storage (Android Keystore)",
-            "Public / private repo filter, search, favorites", "Create, edit, rename, topics, download ZIP, delete repositories", "Repository permission checker",
-            "Pick files and folders with folder structure preserved", "Advanced ZIP extractor: choose root folder, strip levels, filters, per-file path review", "Review, select & delete staged files/folders before pushing",
-            "Duplicate detection and .gitkeep for empty folders", "Upload size calculator & large-file warning",
-            "Branch selector, create branches, compare & merge", "Target folder inside the repo", "Single atomic commit (no half-pushed uploads)",
-            "Commit message + description with smart & AI suggestions", "Live progress, per-file status, cancel & retry failed", "Existing-file conflict detection: Replace / Skip / Cancel",
-            "Unchanged files auto-skipped (SHA compare)", "Rate-limit & network retry handling", "Repository browser with breadcrumbs and whole-repo search",
-            "Code viewer with syntax colors & line numbers", "Code editor with commit", "Create / rename / move / delete files",
-            "Delete one or many files & folders in one commit", "Image preview & Markdown preview", "Download file, copy path & raw URL",
-            "Commit history, commit details & diff viewer, revert", "GitHub Actions: runs, jobs, re-run, cancel, artifacts, logs, dispatch", "Releases: create, edit, auto/AI notes, upload assets",
-            "AI README writer (bring your own key)", ".gitignore & README generators", "SHA-256 / Git-SHA file checker",
-            "Share files from other apps into GitPush", "Dashboard with 7-day chart, latest build & API rate limit", "Upload history, repeat last config & report export",
-            "Upload notifications", "Light / Dark / System themes, accent colors, density, haptics", "Animated glass dialogs, splash & onboarding"
+            "Premium black & white design system (Manrope + Inter + Space Mono, Lucide-style vector icons)",
+            "GitHub OAuth (Device Flow) & classic Personal Access Token login with all required scopes", "Multiple accounts with instant switching", "Encrypted token storage (Android Keystore)",
+            "Code IDE: glass file explorer, file tabs, pinch-zoom editor, undo / redo, syntax highlight, red error marks", "IDE: create / rename / move / duplicate / delete / import / export files and folders",
+            "IDE: find & replace, go to line, symbols bar, auto-indent, editor settings page", "IDE: Markdown and HTML preview, image preview, one-commit saving of all changes",
+            "Advanced ZIP extractor: root folder, strip levels, tree & list views, folder selection", "ZIP: extension / size filters, path find & replace, case & space cleanup, presets, previews, ZIP info, pattern select, undo",
+            "Upload ZIP / APK as-is, parallel blob upload, live speed & ETA", "Single atomic commit (no half-pushed uploads), retry failed files, conflict dialog",
+            "Background uploads with a foreground-service progress notification", "GitHub Actions: filters, live timers, build-time chart, re-run / cancel / delete, auto-refresh",
+            "Run details: step progress, per-job timeline with step durations, job log viewer with search", "Download artifacts and logs, run workflows with inputs, enable / disable workflows, notify when a run finishes",
+            "Secrets & variables manager with on-device encryption, .env bulk import, random generator", "Releases: create / edit, auto / AI notes, upload assets with progress",
+            "Import repository (fork or fresh-history copy), rename, archive, default branch, topics, delete with type-to-confirm", "AI README writer, AI commit messages, AI release notes (bring your own key)",
+            "Favorites, repo search & filters, branch compare & merge, commit history with diffs and revert", ".gitignore & README generators, SHA-256 checker, share files into GitPush",
+            "Animated glass dialogs, screen transitions, dashboard with 7-day chart and latest build"
     };
+
 
     private static final String[] ACCENTS = {"Mint", "Sky", "Violet", "Amber", "Rose"};
     private static final int[] ACCENT_COLORS = {0xFF47C8AF, 0xFF7CA8FF, 0xFFB794FF, 0xFFFFA45C, 0xFFFF7A9C};
@@ -122,25 +122,16 @@ class ProfileTab {
         for (final String[] m : modes)
             themes.addView(Ui.chip(a, m[1], st.theme.equals(m[0]), v -> { st.setThemeMode(m[0]); a.recreate(); }), Ui.lp(a, Ui.WRAP, Ui.WRAP, 0, 0, 8, 0));
         set.addView(themes, Ui.lp(a, Ui.MATCH, Ui.WRAP, 0, 8, 0, 12));
-        set.addView(Ui.title(a, "Accent color"));
-        LinearLayout acs = Ui.hbox(a);
-        for (int i = 0; i < ACCENTS.length; i++) {
-            final int idx = i;
-            TextView dot = Ui.text(a, st.accent == i ? "✓" : "", 16, true, R.attr.gpBg);
-            dot.setGravity(Gravity.CENTER);
-            android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
-            g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            g.setColor(ACCENT_COLORS[i]);
-            if (st.accent == i) g.setStroke(Ui.dp(a, 3), Ui.color(a, R.attr.gpText));
-            dot.setBackground(g);
-            dot.setOnClickListener(v -> { st.setAccent(idx); a.recreate(); });
-            acs.addView(dot, Ui.lp(a, Ui.dp(a, 38), Ui.dp(a, 38), 0, 0, 12, 0));
-        }
-        set.addView(acs, Ui.lp(a, Ui.MATCH, Ui.WRAP, 0, 8, 0, 12));
         set.addView(switchRow("Compact list density", st.compact, on -> st.setCompact(on)));
         set.addView(switchRow("Haptic feedback", st.haptics, on -> st.setHaptics(on)));
         set.addView(Ui.textButton(a, "Clear upload history", R.attr.gpError, v -> { st.clearHistory(); Ui.toast(a, "History cleared"); }));
         col.addView(set, side(0));
+
+        LinearLayout ide = Ui.card(a);
+        ide.addView(Ui.title(a, "💻  Code IDE settings"));
+        ide.addView(Ui.muted(a, "Font size, line numbers, word wrap, tab size, syntax colors"));
+        ide.setOnClickListener(v -> a.startActivity(new Intent(a, IdeSettingsActivity.class)));
+        col.addView(ide, side(10));
 
         LinearLayout tools = Ui.card(a);
         tools.addView(Ui.title(a, "🧰  Smart tools"));

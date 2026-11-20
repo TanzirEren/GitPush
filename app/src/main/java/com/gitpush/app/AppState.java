@@ -43,7 +43,7 @@ public class AppState {
 
     public final List<StagedFile> staged = new ArrayList<>();
     public String stagedFor;
-    public boolean sharedBanner, stageBusy;
+    public boolean sharedBanner, stageBusy, autoPush;
 
     public PushSession session;
     public final Set<String> favorites = new HashSet<>();
@@ -241,12 +241,22 @@ public class AppState {
     public void cancelPush() { if (session != null) session.cancel(); }
     public void closeSession() { if (session != null && !session.running) session = null; }
 
-    private void runPush(PushSession s) {
+    private void runPush(final PushSession s) {
         final GitHubApi a = new GitHubApi(active.token);
         s.running = true;
+        KeepAliveService.begin(app, "Pushing to " + s.repo.name);
+        final Runnable tick = new Runnable() {
+            @Override public void run() {
+                if (!s.running) return;
+                int pct = (int) (s.progress() * 100);
+                KeepAliveService.update(app, "Pushing to " + s.repo.name + "  " + s.doneCount() + "/" + s.total() + " files", pct);
+                app.main.postDelayed(this, 900);
+            }
+        };
+        app.main.post(tick);
         app.io.execute(() -> {
             Pusher.run(app, a, s);
-            app.main.post(() -> afterPush(s));
+            app.main.post(() -> { KeepAliveService.end(app); afterPush(s); });
         });
     }
 

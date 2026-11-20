@@ -41,7 +41,9 @@ public class GitHubApi {
     static class StreamJsonBody extends RequestBody {
         private final String prefix, suffix;
         private final StreamSource src;
-        StreamJsonBody(String prefix, String suffix, StreamSource src) { this.prefix = prefix; this.suffix = suffix; this.src = src; }
+        private final ProgressCb cb;
+        StreamJsonBody(String prefix, String suffix, StreamSource src) { this(prefix, suffix, src, null); }
+        StreamJsonBody(String prefix, String suffix, StreamSource src, ProgressCb cb) { this.prefix = prefix; this.suffix = suffix; this.src = src; this.cb = cb; }
         @Override public MediaType contentType() { return JSON; }
         @Override public long contentLength() { return -1L; }
         @Override public boolean isOneShot() { return false; }
@@ -53,9 +55,10 @@ public class GitHubApi {
             };
             Base64OutputStream b64 = new Base64OutputStream(guard, Base64.NO_WRAP);
             try (InputStream in = src.open()) {
-                byte[] buf = new byte[64 * 1024];
+                byte[] buf = new byte[128 * 1024];
                 int n;
-                while ((n = in.read(buf)) >= 0) b64.write(buf, 0, n);
+                long done = 0;
+                while ((n = in.read(buf)) >= 0) { b64.write(buf, 0, n); done += n; if (cb != null) cb.on(done, -1); }
             }
             b64.close();
             sink.writeUtf8(suffix);
@@ -181,6 +184,7 @@ public class GitHubApi {
         r.language = str(j, "language"); r.stars = j.optInt("stargazers_count"); r.sizeKb = j.optInt("size");
         r.canPush = perms == null || perms.optBoolean("push", true);
         r.isAdmin = perms != null && perms.optBoolean("admin", false);
+        r.archived = j.optBoolean("archived", false);
         return r;
     }
 
@@ -304,8 +308,10 @@ public class GitHubApi {
         return out;
     }
 
-    public String createBlob(String owner, String repo, StreamSource src) throws ApiException {
-        return ok(call("POST", rp(owner, repo) + "/git/blobs", new StreamJsonBody("{\"encoding\":\"base64\",\"content\":\"", "\"}", src))).json().optString("sha");
+    public String createBlob(String owner, String repo, StreamSource src) throws ApiException { return createBlob(owner, repo, src, null); }
+
+    public String createBlob(String owner, String repo, StreamSource src, ProgressCb cb) throws ApiException {
+        return ok(call("POST", rp(owner, repo) + "/git/blobs", new StreamJsonBody("{\"encoding\":\"base64\",\"content\":\"", "\"}", src, cb))).json().optString("sha");
     }
 
     public String createTree(String owner, String repo, String base, List<NewEntry> entries) throws ApiException {
@@ -480,6 +486,8 @@ public class GitHubApi {
         r.event = j.optString("event"); r.sha = j.optString("head_sha"); r.htmlUrl = j.optString("html_url");
         r.createdAt = j.optString("created_at"); r.actor = o(j, "actor").optString("login");
         r.number = j.optInt("run_number"); r.attempt = j.optInt("run_attempt", 1);
+        r.startedAt = str(j, "run_started_at"); if (r.startedAt == null) r.startedAt = r.createdAt;
+        r.updatedAt = str(j, "updated_at");
         return r;
     }
 
@@ -506,6 +514,7 @@ public class GitHubApi {
                 if (sj == null) continue;
                 Step step = new Step();
                 step.name = sj.optString("name"); step.status = sj.optString("status"); step.conclusion = str(sj, "conclusion"); step.number = sj.optInt("number");
+                step.startedAt = str(sj, "started_at"); step.completedAt = str(sj, "completed_at");
                 job.steps.add(step);
             }
             out.add(job);
@@ -548,9 +557,32 @@ public class GitHubApi {
         return out;
     }
 
-    public void dispatch(String owner, String repo, long workflowId, String ref) throws ApiException {
-        ok(call("POST", rp(owner, repo) + "/actions/workflows/" + workflowId + "/dispatches", jsonBody(obj("ref", ref))));
+    public void dispatch(String owner, String repo, long workflowId, String ref) throws ApiException { dispatch(owner, repo, workflowId, ref, null); }
+
+    public void dispatch(String owner, String repo, long workflowId, String ref, JSONObject inputs) throws ApiException {
+        JSONObject body = obj("ref", ref);
+        try { if (inputs != null && inputs.length() > 0) body.put("inputs", inputs); } catch (JSONException ignored) { }
+        ok(call("POST", rp(owner, repo) + "/actions/workflows/" + workflowId + "/dispatches", jsonBody(body)));
     }
+
+    public Run run(String owner, String repo, long runId) throws ApiException { return parseRun(ok(call("GET", rp(owner, repo) + "/actions/runs/" + runId, null)).json()); }
+
+    /** Last [maxBytes] bytes of a job's log as text. */
+    public String jobLogs(String owner, String repo, long jobId, final int maxBytes) throws ApiException {
+        final java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+        stream(rp(owner, repo) + "/actions/jobs/" + jobId + "/logs", new OutputStream() {
+            @Override public void write(int b) { buf.write(b); trim(); }
+            @Override public void write(byte[] b, int off, int len) { buf.write(b, off, len); trim(); }
+            private void trim() {
+                if (buf.size() > maxBytes * 2) { byte[] all = buf.toByteArray(); buf.reset(); buf.write(all, all.length - maxBytes, maxBytes); }
+            }
+        }, null);
+        byte[] all = buf.toByteArray();
+        int from = Math.max(0, all.length - maxBytes);
+        return new String(all, from, all.length - from, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    public Repo fork(String owner, String repo) throws ApiException { return parseRepo(ok(call("POST", rp(owner, repo) + "/forks", jsonBody(new JSONObject()))).json()); }
 
     public void setWorkflowEnabled(String owner, String repo, long workflowId, boolean enabled) throws ApiException {
         ok(call("PUT", rp(owner, repo) + "/actions/workflows/" + workflowId + (enabled ? "/enable" : "/disable"), null));
@@ -621,4 +653,53 @@ public class GitHubApi {
         for (int i = 0; i < arr.length(); i++) { JSONObject j = arr.optJSONObject(i); if (j != null) out.add(j.optString("name")); }
         return out;
     }
+
+    // ---------------------------------------------------------------- Secrets & variables
+    /** Returns {keyId, base64 public key}. */
+    public String[] secretsPublicKey(String owner, String repo) throws ApiException {
+        JSONObject j = ok(call("GET", rp(owner, repo) + "/actions/secrets/public-key", null)).json();
+        return new String[]{j.optString("key_id"), j.optString("key")};
+    }
+
+    public List<SecretInfo> secrets(String owner, String repo) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/actions/secrets?per_page=100", null)).json().optJSONArray("secrets");
+        List<SecretInfo> out = new ArrayList<>();
+        if (arr != null) for (int i = 0; i < arr.length(); i++) {
+            JSONObject j = arr.optJSONObject(i);
+            if (j == null) continue;
+            SecretInfo s = new SecretInfo();
+            s.name = j.optString("name"); s.updatedAt = j.optString("updated_at");
+            out.add(s);
+        }
+        return out;
+    }
+
+    public void putSecret(String owner, String repo, String name, String encryptedB64, String keyId) throws ApiException {
+        ok(call("PUT", rp(owner, repo) + "/actions/secrets/" + enc(name), jsonBody(obj("encrypted_value", encryptedB64, "key_id", keyId))));
+    }
+
+    public void deleteSecret(String owner, String repo, String name) throws ApiException { ok(call("DELETE", rp(owner, repo) + "/actions/secrets/" + enc(name), null)); }
+
+    public List<SecretInfo> variables(String owner, String repo) throws ApiException {
+        JSONArray arr = ok(call("GET", rp(owner, repo) + "/actions/variables?per_page=100", null)).json().optJSONArray("variables");
+        List<SecretInfo> out = new ArrayList<>();
+        if (arr != null) for (int i = 0; i < arr.length(); i++) {
+            JSONObject j = arr.optJSONObject(i);
+            if (j == null) continue;
+            SecretInfo s = new SecretInfo();
+            s.name = j.optString("name"); s.value = j.optString("value"); s.updatedAt = j.optString("updated_at");
+            out.add(s);
+        }
+        return out;
+    }
+
+    public void createVariable(String owner, String repo, String name, String value) throws ApiException {
+        ok(call("POST", rp(owner, repo) + "/actions/variables", jsonBody(obj("name", name, "value", value))));
+    }
+
+    public void updateVariable(String owner, String repo, String name, String value) throws ApiException {
+        ok(call("PATCH", rp(owner, repo) + "/actions/variables/" + enc(name), jsonBody(obj("name", name, "value", value))));
+    }
+
+    public void deleteVariable(String owner, String repo, String name) throws ApiException { ok(call("DELETE", rp(owner, repo) + "/actions/variables/" + enc(name), null)); }
 }

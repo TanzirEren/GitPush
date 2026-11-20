@@ -59,7 +59,10 @@ public class MainActivity extends BaseActivity {
         if (t == 0) { home.refresh(); v = home.view; }
         else if (t == 1) { repos.refresh(); v = repos.view; }
         else { profile.refresh(); v = profile.view; }
-        content.addView(v, new FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH));
+        int sw = getResources().getDisplayMetrics().widthPixels, mx = Ui.dp(this, 760);
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(Ui.MATCH, Ui.MATCH);
+        if (sw > mx) { cp.leftMargin = (sw - mx) / 2; cp.rightMargin = (sw - mx) / 2; }
+        content.addView(v, cp);
         v.setAlpha(0f);
         v.animate().alpha(1f).setDuration(180).start();
         tint(navHome, t == 0); tint(navProfile, t == 2);
@@ -67,8 +70,9 @@ public class MainActivity extends BaseActivity {
 
     private void tint(LinearLayout item, boolean on) {
         if (item == null) return;
-        item.setAlpha(on ? 1f : 0.55f);
-        ((TextView) item.getChildAt(1)).setTextColor(Ui.color(this, on ? R.attr.gpPrimary : R.attr.gpMuted));
+        int c = Ui.color(this, on ? R.attr.gpText : R.attr.gpMuted);
+        ((ImageView) item.getChildAt(0)).setColorFilter(c);
+        ((TextView) item.getChildAt(1)).setTextColor(c);
     }
 
     private LinearLayout navItem(int icon, String label, int target) {
@@ -77,7 +81,8 @@ public class MainActivity extends BaseActivity {
         l.setBackgroundResource(R.drawable.bg_ripple_row);
         ImageView iv = new ImageView(this);
         iv.setImageResource(icon);
-        l.addView(iv, Ui.lp(Ui.dp(this, 24), Ui.dp(this, 24)));
+        iv.setColorFilter(Ui.color(this, R.attr.gpMuted));
+        l.addView(iv, Ui.lp(Ui.dp(this, 22), Ui.dp(this, 22)));
         l.addView(Ui.text(this, label, 11, true, R.attr.gpMuted), Ui.lp(Ui.WRAP, Ui.WRAP));
         l.setOnClickListener(v -> { Ui.haptic(v); select(target); });
         return l;
@@ -85,20 +90,22 @@ public class MainActivity extends BaseActivity {
 
     private View buildNav() {
         FrameLayout wrap = new FrameLayout(this);
-        wrap.setPadding(Ui.dp(this, 28), Ui.dp(this, 14), Ui.dp(this, 28), Ui.dp(this, 14));
+        int sw = getResources().getDisplayMetrics().widthPixels, mx = Ui.dp(this, 520);
+        int side = Math.max(Ui.dp(this, 28), (sw - mx) / 2);
+        wrap.setPadding(side, Ui.dp(this, 14), side, Ui.dp(this, 14));
         wrap.setClipChildren(false);
         LinearLayout pill = Ui.hbox(this);
         pill.setBackgroundResource(R.drawable.bg_pill_nav);
-        pill.setElevation(Ui.dp(this, 10));
+        pill.setElevation(Ui.dp(this, 8));
         pill.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), 0);
-        navHome = navItem(R.drawable.ic_home, "Home", 0);
-        navProfile = navItem(R.drawable.ic_person, "Profile", 2);
+        navHome = navItem(R.drawable.i_home, "Home", 0);
+        navProfile = navItem(R.drawable.i_user, "Profile", 2);
         pill.addView(navHome, Ui.weight(1f));
         pill.addView(new View(this), Ui.weight(1f));
         pill.addView(navProfile, Ui.weight(1f));
         wrap.addView(pill, new FrameLayout.LayoutParams(Ui.MATCH, Ui.dp(this, 66), Gravity.BOTTOM));
         ImageView fab = new ImageView(this);
-        fab.setImageResource(R.drawable.ic_plus);
+        fab.setImageResource(R.drawable.i_plus);
         fab.setBackgroundResource(R.drawable.bg_fab);
         fab.setColorFilter(Ui.color(this, R.attr.gpOnPrimary));
         fab.setPadding(Ui.dp(this, 17), Ui.dp(this, 17), Ui.dp(this, 17), Ui.dp(this, 17));

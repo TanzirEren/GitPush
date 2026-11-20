@@ -5,7 +5,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.gitpush.app.util.BracketLint;
 import com.gitpush.app.util.GitHash;
+import com.gitpush.app.util.SealedBox;
 import com.gitpush.app.util.PathUtils;
 import com.gitpush.app.util.ZipRules;
 
@@ -75,5 +77,41 @@ public class UtilTest {
     @Test public void zipTopChain() {
         List<String> p = Arrays.asList("A/B/x.txt", "A/B/y/z.txt", "A/B/README.md");
         assertEquals(Arrays.asList("A", "A/B"), ZipRules.topChain(p));
+    }
+
+    @Test public void zipRulesV2() {
+        ZipRules r = new ZipRules();
+        r.skipEmpty = true;
+        assertNull(r.apply("a/b.txt", 0));
+        assertEquals("a/b.txt", r.apply("a/b.txt", 5));
+        ZipRules m = new ZipRules();
+        m.maxSize = 100;
+        assertNull(m.apply("big.bin", 500));
+        ZipRules h = new ZipRules();
+        h.hiddenExts.add("class");
+        assertNull(h.apply("a/B.class", 1));
+        assertEquals("a/B.java", h.apply("a/B.java", 1));
+        ZipRules rp = new ZipRules();
+        rp.replaceFind = "-main";
+        assertEquals("proj/src/a.txt", rp.apply("proj-main/src/a.txt"));
+        ZipRules c = new ZipRules();
+        c.caseMode = 1; c.spacesToUnderscore = true;
+        assertEquals("my_docs/read_me.txt", c.apply("My Docs/Read Me.TXT"));
+        assertTrue(ZipRules.matchesGlobs("*.java, docs/", "a/b/C.java"));
+    }
+
+    @Test public void bracketLint() {
+        assertEquals(0, BracketLint.check("class A { void f(){ String s = \"}{\"; } }", "java").size());
+        assertEquals(1, BracketLint.check("class A { void f(){ }", "java").size());
+        assertEquals(1, BracketLint.check("class A { } }", "java").size());
+        assertEquals(0, BracketLint.check("def f(:", "py").size());
+    }
+
+    @Test public void sealedBoxKnownVector() throws Exception {
+        byte[] esk = new byte[32];
+        java.util.Arrays.fill(esk, (byte) 1);
+        byte[] pk = java.util.Base64.getDecoder().decode("E75P6uryBMf9M1j8nAByGIHRdCeBKCJ+xnTzf3/pe20=");
+        String out = java.util.Base64.getEncoder().encodeToString(SealedBox.seal("hello world".getBytes("UTF-8"), pk, esk));
+        assertEquals("pOCSkrZRwni5dyxWn1+puxPZBrRqtoyd+dwrRAn4ogm3S+i/mdT9pPIqg7Co8GcaGiA0YOJfgkHTBcE=", out);
     }
 }

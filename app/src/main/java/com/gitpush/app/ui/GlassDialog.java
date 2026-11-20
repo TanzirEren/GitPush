@@ -38,6 +38,7 @@ public class GlassDialog {
     private final DialogInterface.OnClickListener[] btnListener = new DialogInterface.OnClickListener[3];
     private final Button[] btns = new Button[3];
     private boolean cancelable = true, danger, closing;
+    private LinearLayout itemList;
     private DialogInterface.OnDismissListener dismissListener;
 
     public GlassDialog(Context ctx) { this.ctx = ctx; }
@@ -79,13 +80,8 @@ public class GlassDialog {
 
         if (title != null || icon != null) {
             LinearLayout head = Ui.hbox(ctx);
-            if (icon != null) {
-                TextView ic = Ui.text(ctx, icon, 22, false, R.attr.gpText);
-                ic.setGravity(Gravity.CENTER);
-                ic.setBackgroundResource(R.drawable.bg_icon_tile);
-                head.addView(ic, Ui.lp(ctx, Ui.dp(ctx, 44), Ui.dp(ctx, 44), 0, 0, 12, 0));
-            }
-            if (title != null) head.addView(Ui.text(ctx, title, 19, true, R.attr.gpText), Ui.weight(1f));
+            if (icon != null) head.addView(Ui.iconTile(ctx, icon, 42), Ui.lp(ctx, Ui.dp(ctx, 42), Ui.dp(ctx, 42), 0, 0, 12, 0));
+            if (title != null) head.addView(Ui.text(ctx, title, 18, true, R.attr.gpText), Ui.weight(1f));
             card.addView(head, Ui.lp(Ui.MATCH, Ui.WRAP));
         }
         if (message != null) {
@@ -101,6 +97,7 @@ public class GlassDialog {
         if (customView != null) card.addView(customView, Ui.lp(ctx, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
         if (items != null) {
             LinearLayout list = Ui.vbox(ctx);
+            itemList = list;
             for (int i = 0; i < items.length; i++) {
                 final int idx = i;
                 TextView row = Ui.text(ctx, items[i], 15, false, R.attr.gpText);
@@ -151,16 +148,17 @@ public class GlassDialog {
             int width = Math.min((int) (dm.widthPixels * 0.92f), Ui.dp(ctx, 440));
             w.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
             w.setGravity(Gravity.CENTER);
-            w.setDimAmount(0.5f);
+            w.setDimAmount(0.45f);
             w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            if (Build.VERSION.SDK_INT >= 31) {
-                w.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
-                w.getAttributes().setBlurBehindRadius(28);
-            }
         }
         card.setAlpha(0f); card.setScaleX(0.9f); card.setScaleY(0.9f); card.setTranslationY(Ui.dp(ctx, 26));
         try { dialog.show(); } catch (Exception e) { return this; }
         card.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(280).setInterpolator(new OvershootInterpolator(0.9f)).start();
+        if (itemList != null) for (int i = 0; i < itemList.getChildCount(); i++) {
+            View row = itemList.getChildAt(i);
+            row.setAlpha(0f); row.setTranslationX(Ui.dp(ctx, 14));
+            row.animate().alpha(1f).translationX(0f).setStartDelay(90L + Math.min(i, 10) * 28L).setDuration(240).start();
+        }
         return this;
     }
 

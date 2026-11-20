@@ -16,6 +16,11 @@ public final class ZipRules {
     public String addPrefix = "";
     public boolean skipHidden = false, flatten = false, skipJunk = true;
     public String exclude = "", include = "";
+    public int caseMode = 0;                       // 0 keep, 1 lower, 2 upper
+    public boolean spacesToUnderscore = false, skipEmpty = false;
+    public long maxSize = 0;                       // 0 = no limit
+    public String replaceFind = "", replaceWith = "";
+    public final Set<String> hiddenExts = new HashSet<>();   // extensions (lower-case, "" = none) to leave out
 
     private static final Set<String> JUNK = new HashSet<>(Arrays.asList("__MACOSX", ".DS_Store", "Thumbs.db", "desktop.ini"));
     private static final Set<String> KEEP_HIDDEN = new HashSet<>(Arrays.asList(".gitignore", ".gitattributes", ".gitkeep", ".github", ".editorconfig"));
@@ -46,8 +51,22 @@ public final class ZipRules {
         return false;
     }
 
-    /** Returns the new repo-relative path, or null when the entry is excluded. */
-    public String apply(String path) {
+    public static boolean matchesGlobs(String globs, String path) { return !globs.trim().isEmpty() && matches(compile(globs), path); }
+
+    public String apply(String path) { return apply(path, -1); }
+
+    /** Returns the new repo-relative path, or null when the entry is excluded. [size] < 0 means unknown. */
+    public String apply(String path, long size) {
+        if (size >= 0) {
+            if (skipEmpty && size == 0) return null;
+            if (maxSize > 0 && size > maxSize) return null;
+        }
+        if (!hiddenExts.isEmpty()) {
+            String b = PathUtils.baseName(path);
+            int dot = b.lastIndexOf('.');
+            String ext = dot <= 0 ? "" : b.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
+            if (hiddenExts.contains(ext)) return null;
+        }
         String p = path;
         String[] segs = p.split("/");
         if (skipJunk) for (String s : segs) if (JUNK.contains(s)) return null;
@@ -67,6 +86,11 @@ public final class ZipRules {
         if (skipHidden) for (String s : p.split("/")) if (s.startsWith(".") && !KEEP_HIDDEN.contains(s)) return null;
         if (!exclude.trim().isEmpty() && matches(compile(exclude), p)) return null;
         if (!include.trim().isEmpty() && !matches(compile(include), p)) return null;
+        if (!replaceFind.isEmpty()) {
+            try { p = p.replaceAll(replaceFind, replaceWith); } catch (Exception e) { p = p.replace(replaceFind, replaceWith); }
+        }
+        if (caseMode == 1) p = p.toLowerCase(java.util.Locale.ROOT); else if (caseMode == 2) p = p.toUpperCase(java.util.Locale.ROOT);
+        if (spacesToUnderscore) p = p.replace(' ', '_');
         if (flatten) p = PathUtils.baseName(p);
         String pre = PathUtils.trimSlashes(addPrefix.trim().replace('\\', '/'));
         if (!pre.isEmpty()) p = pre + "/" + p;

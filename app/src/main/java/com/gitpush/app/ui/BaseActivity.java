@@ -24,7 +24,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle b) {
         app = GitPushApp.get();
         st = app.state;
-        setTheme(Ui.themeFor(st.accent));
+        setTheme(R.style.Theme_GitPush);
         super.onCreate(b);
     }
 
@@ -36,14 +36,14 @@ public abstract class BaseActivity extends AppCompatActivity {
         header.setPadding(Ui.dp(this, 8), Ui.dp(this, 6), Ui.dp(this, 8), Ui.dp(this, 6));
         if (back) {
             ImageView bk = new ImageView(this);
-            bk.setImageResource(R.drawable.ic_back);
+            bk.setImageResource(R.drawable.i_back);
             bk.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12));
             bk.setBackgroundResource(R.drawable.bg_ripple_row);
             bk.setOnClickListener(v -> onBackPressed());
             header.addView(bk, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48)));
         } else header.addView(Ui.space(this, 1), Ui.lp(Ui.dp(this, 12), 1));
         LinearLayout titles = Ui.vbox(this);
-        titleTv = Ui.text(this, title, 17, true, R.attr.gpText);
+        titleTv = Ui.text(this, title, 18, true, R.attr.gpText);
         titleTv.setSingleLine(true); titleTv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         subTv = Ui.muted(this, sub == null ? "" : sub);
         subTv.setSingleLine(true); subTv.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -54,6 +54,11 @@ public abstract class BaseActivity extends AppCompatActivity {
         actionsBox.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(actionsBox);
         page.addView(header, Ui.lp(Ui.MATCH, Ui.WRAP));
+        View line = new View(this);
+        line.setBackgroundColor(Ui.color(this, R.attr.gpOutline));
+        page.addView(line, Ui.lp(Ui.MATCH, 1));
+        int sw = getResources().getDisplayMetrics().widthPixels, mx = Ui.dp(this, 760);
+        if (sw > mx) page.setPadding((sw - mx) / 2, 0, (sw - mx) / 2, 0);
         body = new FrameLayout(this);
         page.addView(body, new LinearLayout.LayoutParams(Ui.MATCH, 0, 1f));
         setContentView(page);

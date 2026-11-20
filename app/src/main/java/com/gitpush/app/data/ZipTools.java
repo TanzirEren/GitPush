@@ -24,8 +24,8 @@ public final class ZipTools {
 
     public static class Entry {
         public final String raw, path;
-        public final long size;
-        public Entry(String raw, String path, long size) { this.raw = raw; this.path = path; this.size = size; }
+        public final long size, csize;
+        public Entry(String raw, String path, long size, long csize) { this.raw = raw; this.path = path; this.size = size; this.csize = csize; }
     }
 
     public interface Progress { void on(int done, int total); }
@@ -52,12 +52,26 @@ public final class ZipTools {
                 if (e.isDirectory()) continue;
                 String clean = PathUtils.cleanZipPath(e.getName());
                 if (clean == null) continue;
-                out.add(new Entry(e.getName(), clean, Math.max(0, e.getSize())));
+                out.add(new Entry(e.getName(), clean, Math.max(0, e.getSize()), Math.max(0, e.getCompressedSize())));
             }
         } catch (java.util.zip.ZipException e) {
             throw new IOException("Not a valid ZIP file (encrypted ZIPs are not supported)");
         }
         return out;
+    }
+
+    /** Reads up to [max] bytes of one entry (for previews). */
+    public static byte[] readEntry(File zip, String raw, int max) throws IOException {
+        try (ZipFile zf = new ZipFile(zip)) {
+            ZipEntry e = zf.getEntry(raw);
+            if (e == null) throw new IOException("Entry not found");
+            try (InputStream in = zf.getInputStream(e)) {
+                java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[16384]; int n;
+                while ((n = in.read(buf)) >= 0 && bo.size() < max) bo.write(buf, 0, n);
+                return bo.toByteArray();
+            }
+        }
     }
 
     /** Extracts the given entries (raw name → new path) into the cache and returns staged files. */
