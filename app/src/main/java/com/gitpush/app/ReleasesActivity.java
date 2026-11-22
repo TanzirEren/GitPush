@@ -17,6 +17,7 @@ import com.gitpush.app.data.Models.Asset;
 import com.gitpush.app.data.Models.Release;
 import com.gitpush.app.ui.AssetUploader;
 import com.gitpush.app.ui.BaseActivity;
+import com.gitpush.app.ui.Downloader;
 import com.gitpush.app.ui.GlassDialog;
 import com.gitpush.app.ui.Rich;
 import com.gitpush.app.ui.Ui;
@@ -49,6 +50,7 @@ public class ReleasesActivity extends BaseActivity {
         repo = getIntent().getStringExtra("repo");
         api = st.api();
         buildScreen("Releases", owner + "/" + repo, true);
+        addAction(R.drawable.i_list, v -> ReleaseOrderActivity.open(this, owner, repo));
         addTextAction("＋ New", v -> ReleaseEditActivity.open(this, owner, repo, null));
         LinearLayout page = Ui.vbox(this);
         status = Ui.muted(this, "Loading…");
@@ -107,7 +109,9 @@ public class ReleasesActivity extends BaseActivity {
     private void menu(final Release r) {
         List<String> items = new ArrayList<>();
         items.add("📖  Notes & assets");
-        items.add("✏  Edit release");
+        items.add("✏  Edit release & tag");
+        items.add("🔁  Reorder releases…");
+        if (!r.draft && !r.prerelease) items.add("⭐  Make latest");
         items.add("⬆  Upload assets");
         if (r.draft) items.add("🚀  Publish draft");
         items.add("📋  Copy tag");
@@ -118,6 +122,8 @@ public class ReleasesActivity extends BaseActivity {
             String l = arr[i];
             if (l.contains("Notes")) details(r);
             else if (l.contains("Edit")) ReleaseEditActivity.open(this, owner, repo, r);
+            else if (l.contains("Reorder")) ReleaseOrderActivity.open(this, owner, repo);
+            else if (l.contains("Make latest")) async(() -> { api.makeLatest(owner, repo, r.id); return "ok"; }, x -> { Ui.toast(this, "Marked as latest"); load(); }, e -> Ui.toast(this, msg(e)));
             else if (l.contains("Upload")) { uploadTarget = r; startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true), REQ_ASSETS); }
             else if (l.contains("Publish")) async(() -> api.updateRelease(owner, repo, r.id, new JSONObject().put("draft", false)), x -> { Ui.toast(this, "Published"); load(); }, e -> Ui.toast(this, msg(e)));
             else if (l.contains("Copy")) { Ui.copy(this, "tag", r.tag); Ui.toast(this, "Tag copied"); }
@@ -144,9 +150,10 @@ public class ReleasesActivity extends BaseActivity {
         for (int i = 0; i < labels.length; i++) { Asset a = r.assets.get(i); labels[i] = "📦  " + a.name + "  (" + PathUtils.formatSize(a.size) + " • ⬇" + a.downloads + ")"; }
         Ui.pickList(this, "Assets", labels, i -> {
             final Asset a = r.assets.get(i);
-            Ui.pickList(this, a.name, new String[]{"🌐  Download in browser", "🔗  Copy download link", "🗑  Delete asset"}, k -> {
-                if (k == 0) Ui.openUrl(this, a.url);
-                else if (k == 1) { Ui.copy(this, "url", a.url); Ui.toast(this, "Link copied"); }
+            Ui.pickList(this, a.name, new String[]{"⬇  Download to device", "🌐  Open in browser", "🔗  Copy download link", "🗑  Delete asset"}, k -> {
+                if (k == 0) Downloader.request(this, api, "/repos/" + owner + "/" + repo + "/releases/assets/" + a.id, a.name, "application/octet-stream");
+                else if (k == 1) Ui.openUrl(this, a.url);
+                else if (k == 2) { Ui.copy(this, "url", a.url); Ui.toast(this, "Link copied"); }
                 else Ui.confirmDanger(this, "Delete " + a.name + "?", "This asset is removed from the release.", "Delete",
                         () -> async(() -> { api.deleteAsset(owner, repo, a.id); return "ok"; }, x -> { Ui.toast(this, "Asset deleted"); load(); }, e -> Ui.toast(this, msg(e))));
             });
@@ -155,6 +162,7 @@ public class ReleasesActivity extends BaseActivity {
 
     @Override protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (Downloader.onResult(this, req, res, data)) return;
         if (req != REQ_ASSETS || res != RESULT_OK || data == null || uploadTarget == null) return;
         List<Uri> uris = new ArrayList<>();
         if (data.getClipData() != null) for (int i = 0; i < data.getClipData().getItemCount(); i++) uris.add(data.getClipData().getItemAt(i).getUri());

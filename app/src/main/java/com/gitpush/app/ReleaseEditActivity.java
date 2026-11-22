@@ -41,7 +41,9 @@ public class ReleaseEditActivity extends BaseActivity {
     private GitHubApi api;
     private Release rel;
     private EditText tag, title, notes;
-    private boolean draft, pre;
+    private boolean draft, pre, moveHead, deleteOld, makeLatest;
+    private EditText commitSha;
+    private LinearLayout tagOpts;
     private LinearLayout flags, assetBox;
     private TextView targetBtn;
     private final List<Uri> assets = new ArrayList<>();
@@ -68,8 +70,16 @@ public class ReleaseEditActivity extends BaseActivity {
         c1.addView(Ui.text(this, "Release", 13, true, R.attr.gpPrimary));
         tag = Ui.input(this, "Tag (e.g. v1.0.0)", rel == null ? "" : rel.tag);
         tag.setSingleLine(true);
-        tag.setEnabled(rel == null);
         c1.addView(tag, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+        if (rel != null) {
+            // v2.1: the tag can now be changed – rename it, point it at another commit, or move it to the branch head
+            tagOpts = Ui.vbox(this);
+            c1.addView(tagOpts, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+            commitSha = Ui.input(this, "Tag at commit SHA (optional)", "");
+            commitSha.setSingleLine(true);
+            c1.addView(commitSha, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
+            c1.addView(Ui.muted(this, "Change the tag name to rename it. A new name creates the tag at the commit SHA, or at the target branch head if the SHA is empty. \"Move tag\" force-moves an existing tag."), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 6, 0, 0));
+        }
         targetBtn = Ui.outlineButton(this, "", v -> pickTarget());
         c1.addView(targetBtn, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
         title = Ui.input(this, "Release title", rel == null ? "" : rel.name == null ? "" : rel.name);
@@ -112,7 +122,18 @@ public class ReleaseEditActivity extends BaseActivity {
         flags.removeAllViews();
         targetBtn.setText("Target branch: " + target + "  ▾");
         flags.addView(Ui.chip(this, "Draft", draft, v -> { draft = !draft; renderFlags(); }), Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 0, 8, 0));
-        flags.addView(Ui.chip(this, "Pre-release", pre, v -> { pre = !pre; renderFlags(); }));
+        flags.addView(Ui.chip(this, "Pre-release", pre, v -> { pre = !pre; renderFlags(); }), Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 0, 8, 0));
+        flags.addView(Ui.chip(this, "Latest", makeLatest, v -> { makeLatest = !makeLatest; renderFlags(); }));
+        if (tagOpts != null) {
+            tagOpts.removeAllViews();
+            LinearLayout row = Ui.hbox(this);
+            row.addView(Ui.chip(this, "Move tag to branch head", moveHead, v -> { moveHead = !moveHead; renderFlags(); }), Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 0, 8, 0));
+            row.addView(Ui.chip(this, "Delete old tag on rename", deleteOld, v -> { deleteOld = !deleteOld; renderFlags(); }));
+            android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+            hs.setHorizontalScrollBarEnabled(false);
+            hs.addView(row);
+            tagOpts.addView(hs);
+        }
     }
 
     private void renderAssets() {
@@ -170,12 +191,32 @@ public class ReleaseEditActivity extends BaseActivity {
 
     private void save() {
         final String t = tag.getText().toString().trim();
-        if (rel == null && t.isEmpty()) { Ui.toast(this, "Enter a tag name"); return; }
+        if (t.isEmpty()) { Ui.toast(this, "Enter a tag name"); return; }
+        if (t.contains(" ") || t.contains("..") || t.startsWith("/") || t.endsWith("/") || t.endsWith(".lock")) { Ui.toast(this, "That is not a valid git tag name"); return; }
         final String name = title.getText().toString().trim(), body = notes.getText().toString();
+        final String sha = commitSha == null ? "" : commitSha.getText().toString().trim();
         final ProgressDlg dlg = new ProgressDlg(this, rel == null ? "Publishing release" : "Saving", "🏷", null);
         async(() -> {
             if (rel == null) return api.createRelease(owner, repo, t, target, name.isEmpty() ? t : name, body, draft, pre, false);
-            return api.updateRelease(owner, repo, rel.id, new JSONObject().put("name", name).put("body", body).put("draft", draft).put("prerelease", pre));
+            final String oldTag = rel.tag;
+            final boolean renamed = !t.equals(oldTag);
+            // 1) make sure the (new) tag points where the user wants it
+            if (!sha.isEmpty() || moveHead) {
+                String at = sha;
+                if (at.isEmpty()) {
+                    com.gitpush.app.data.Models.RefResult rr = api.ref(owner, repo, target);
+                    if (rr.kind != com.gitpush.app.data.Models.RefResult.FOUND) throw new com.gitpush.app.data.ApiException(404, "Branch " + target + " was not found");
+                    at = rr.sha;
+                }
+                api.setTag(owner, repo, t, at);
+            }
+            JSONObject patch = new JSONObject().put("name", name).put("body", body).put("draft", draft).put("prerelease", pre).put("target_commitish", target);
+            if (renamed) patch.put("tag_name", t);
+            if (makeLatest && !draft && !pre) patch.put("make_latest", "true");
+            com.gitpush.app.data.Models.Release out = api.updateRelease(owner, repo, rel.id, patch);
+            // 2) optionally remove the old tag after a rename
+            if (renamed && deleteOld) { try { api.deleteTag(owner, repo, oldTag); } catch (Exception ignored) { } }
+            return out;
         }, r -> {
             dlg.close();
             Ui.toast(this, rel == null ? "Release created" : "Saved");

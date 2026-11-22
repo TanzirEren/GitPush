@@ -16,6 +16,7 @@ import com.gitpush.app.ui.GlassDialog;
 
 import com.gitpush.app.data.Models.Account;
 import com.gitpush.app.ui.ImageLoader;
+import com.gitpush.app.ui.Downloader;
 import com.gitpush.app.ui.Ui;
 
 import java.util.ArrayList;
@@ -132,6 +133,21 @@ class ProfileTab {
         ide.addView(Ui.muted(a, "Font size, line numbers, word wrap, tab size, syntax colors"));
         ide.setOnClickListener(v -> a.startActivity(new Intent(a, IdeSettingsActivity.class)));
         col.addView(ide, side(10));
+
+        LinearLayout sign = Ui.card(a);
+        sign.addView(Ui.title(a, "🔑  APK signing"));
+        sign.addView(Ui.muted(a, "Generate keystores, fingerprints, and push the signing secrets"));
+        sign.setOnClickListener(v -> KeyToolActivity.open(a));
+        col.addView(sign, side(10));
+
+        final LinearLayout dl = Ui.card(a);
+        dl.addView(Ui.title(a, "⬇  Download folder"));
+        final TextView dlInfo = Ui.muted(a, Downloader.folderLabel());
+        dl.addView(dlInfo);
+        dl.setOnClickListener(v -> Ui.pickList(a, "Download folder", new String[]{"📂  Choose folder", "🧹  Forget folder (ask each time)"}, i -> {
+            if (i == 0) Downloader.chooseFolder(a); else { Downloader.forgetFolder(); dlInfo.setText(Downloader.folderLabel()); }
+        }));
+        col.addView(dl, side(10));
 
         LinearLayout tools = Ui.card(a);
         tools.addView(Ui.title(a, "🧰  Smart tools"));

@@ -31,7 +31,10 @@ public final class Icons {
         m(0x1F3A8, R.drawable.i_wand); m(0x1F501, R.drawable.i_refresh); m(0x1F4C5, R.drawable.i_clock); m(0x23F1, R.drawable.i_clock);
         m(0x2B50, R.drawable.i_star); m(0x1F5C2, R.drawable.i_folder); m(0x1F9E9, R.drawable.i_box); m(0x1F9FE, R.drawable.i_file_text);
         m(0x1F522, R.drawable.i_hash); m(0x1F441, R.drawable.i_eye); m(0x1F9F9, R.drawable.i_wand); m(0x23E9, R.drawable.i_chevron_right); m(0x1F4CC, R.drawable.i_pin);
-        m(0x1F6AB, R.drawable.i_ban); m(0x1F501, R.drawable.i_refresh); m(0x1F4E1, R.drawable.i_cloud); m(0x1F5C3, R.drawable.i_archive);
+        m(0x1F6AB, R.drawable.i_ban);
+        m(0x1F33F, R.drawable.i_branch); m(0x1F464, R.drawable.i_user); m(0x1FAAA, R.drawable.i_user); m(0x23EB, R.drawable.i_upload); m(0x23EC, R.drawable.i_download);
+        m(0x1F513, R.drawable.i_lock); m(0x1F510, R.drawable.i_lock); m(0x1F9EA, R.drawable.i_cpu); m(0x1F515, R.drawable.i_bell); m(0x1F4AC, R.drawable.i_file_text);
+        m(0x2442, R.drawable.i_git_fork); m(0x2442, R.drawable.i_git_fork); m(0x1F5BC, R.drawable.i_image); m(0x1F4A1, R.drawable.i_sparkles); m(0x2B06, R.drawable.i_upload); m(0x1F501, R.drawable.i_refresh); m(0x1F4E1, R.drawable.i_cloud); m(0x1F5C3, R.drawable.i_archive);
     }
 
     public static final class Lead {

@@ -48,6 +48,7 @@ import com.gitpush.app.ui.Rich;
 import com.gitpush.app.ui.Ui;
 import com.gitpush.app.util.BracketLint;
 import com.gitpush.app.util.PathUtils;
+import com.gitpush.app.util.ZipRules;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -55,6 +56,9 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.TreeSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,7 +101,12 @@ public class IdeActivity extends BaseActivity {
     private CodeEditText editor;
     private FrameLayout stage;
     private TextView titleTv, subTv, statusTv, problemsTv, previewChip, jsChip;
-    private ImageView undoIv, redoIv, saveIv;
+    private ImageView undoIv, redoIv, saveIv, previewIv;
+    // bulk selection in the explorer
+    private boolean selectMode;
+    private final Set<String> picked = new LinkedHashSet<>();
+    private LinearLayout selBar;
+    private TextView selInfo;
     private LinearLayout tabBar;
     private HorizontalScrollView tabScroll, symbolBar;
     private FrameLayout explorerLayer;
@@ -132,7 +141,7 @@ public class IdeActivity extends BaseActivity {
         v.setPadding(Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
         v.setBackgroundResource(R.drawable.bg_ripple_row);
         v.setOnClickListener(x -> { Ui.haptic(x); l.onClick(x); });
-        v.setLayoutParams(Ui.lp(Ui.dp(this, 38), Ui.dp(this, 38)));
+        v.setLayoutParams(Ui.lp(Ui.dp(this, 36), Ui.dp(this, 36)));
         return v;
     }
 
@@ -157,7 +166,9 @@ public class IdeActivity extends BaseActivity {
         undoIv = tool(R.drawable.i_undo, v -> { if (editorShown) editor.undo(); updateToolbar(); });
         redoIv = tool(R.drawable.i_redo, v -> { if (editorShown) editor.redo(); updateToolbar(); });
         saveIv = tool(R.drawable.i_save, v -> save(true));
-        top.addView(undoIv); top.addView(redoIv); top.addView(saveIv);
+        previewIv = tool(R.drawable.i_eye, v -> togglePreview());
+        previewIv.setVisibility(View.GONE);
+        top.addView(undoIv); top.addView(redoIv); top.addView(previewIv); top.addView(saveIv);
         top.addView(tool(R.drawable.i_upload, v -> commitDialog()));
         top.addView(tool(R.drawable.i_more, v -> moreMenu()));
         main.addView(top, Ui.lp(Ui.MATCH, Ui.WRAP));
@@ -267,10 +278,12 @@ public class IdeActivity extends BaseActivity {
         rn.setSingleLine(true);
         ht.addView(rn);
         head.addView(ht, Ui.weight(1f));
+        head.addView(tool(R.drawable.i_square_check, v -> setSelectMode(!selectMode)));
         head.addView(tool(R.drawable.i_file_plus, v -> createMenu(selectedDir)));
         head.addView(tool(R.drawable.i_import, v -> importHere(selectedDir)));
         head.addView(tool(R.drawable.i_refresh, v -> reloadConfirm()));
         explorerPanel.addView(head);
+        buildSelBar();
         treeSearch = Ui.input(this, "Search files", "");
         treeSearch.setSingleLine(true);
         treeSearch.addTextChangedListener(new TextWatcher() {
@@ -327,6 +340,7 @@ public class IdeActivity extends BaseActivity {
         treeAdapter.notifyDataSetChanged();
         int n = tree.changeCount();
         changeInfo.setText(n == 0 ? "No changes" : n + (n == 1 ? " change" : " changes"));
+        updateSelInfo();
     }
 
     private View treeRow(final Row r) {
@@ -334,12 +348,16 @@ public class IdeActivity extends BaseActivity {
         row.setPadding(Ui.dp(this, 10 + r.depth * 14), Ui.dp(this, 3), Ui.dp(this, 8), Ui.dp(this, 3));
         row.setMinimumHeight(Ui.dp(this, 38));
         boolean active = cur != null && cur.path.equals(r.path);
-        row.setBackgroundResource(active ? R.drawable.bg_tab_on : R.drawable.bg_ripple_row);
+        boolean isPicked = selectMode && picked.contains(r.path);
+        row.setBackgroundResource(active || isPicked ? R.drawable.bg_tab_on : R.drawable.bg_ripple_row);
+        if (selectMode) row.addView(Ui.iconRes(this, isPicked ? R.drawable.i_square_check : R.drawable.i_square, 18, R.attr.gpText), Ui.lp(this, Ui.dp(this, 18), Ui.dp(this, 18), 0, 0, 8, 0));
         if (r.dir) {
-            row.addView(Ui.iconRes(this, r.open ? R.drawable.i_chevron_down : R.drawable.i_chevron_right, 14, R.attr.gpMuted), Ui.lp(this, Ui.dp(this, 14), Ui.dp(this, 14), 0, 0, 6, 0));
+            ImageView chev = Ui.iconRes(this, r.open ? R.drawable.i_chevron_down : R.drawable.i_chevron_right, 14, R.attr.gpMuted);
+            if (selectMode) { chev.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6)); chev.setOnClickListener(v -> { if (!expanded.remove(r.path)) expanded.add(r.path); refreshTree(); }); }
+            row.addView(chev, selectMode ? Ui.lp(this, Ui.dp(this, 26), Ui.dp(this, 26), 0, 0, 2, 0) : Ui.lp(this, Ui.dp(this, 14), Ui.dp(this, 14), 0, 0, 6, 0));
             row.addView(Ui.iconRes(this, r.open ? R.drawable.i_folder_open : R.drawable.i_folder, 18, R.attr.gpText), Ui.lp(this, Ui.dp(this, 18), Ui.dp(this, 18), 0, 0, 8, 0));
         } else {
-            row.addView(new View(this), Ui.lp(Ui.dp(this, 20), 1));
+            if (!selectMode) row.addView(new View(this), Ui.lp(Ui.dp(this, 20), 1));
             row.addView(extBadge(r.name), Ui.lp(this, Ui.dp(this, 26), Ui.dp(this, 22), 0, 0, 8, 0));
         }
         TextView name = Ui.text(this, r.name, 13, !r.dir && false, R.attr.gpText);
@@ -348,11 +366,163 @@ public class IdeActivity extends BaseActivity {
         row.addView(name, Ui.weight(1f));
         if (r.node != null && r.node.changed()) row.addView(Ui.iconRes(this, R.drawable.i_dot, 10, R.attr.gpText), Ui.lp(this, Ui.dp(this, 10), Ui.dp(this, 10), 6, 0, 0, 0));
         row.setOnClickListener(v -> {
+            if (selectMode) { if (!picked.remove(r.path)) picked.add(r.path); refreshTree(); return; }
             if (r.dir) { if (!expanded.remove(r.path)) expanded.add(r.path); selectedDir = r.path; refreshTree(); }
             else { selectedDir = PathUtils.parent(r.path); openFile(r.path); toggleExplorer(false); }
         });
-        row.setOnLongClickListener(v -> { Ui.haptic(v); itemMenu(r); return true; });
+        row.setOnLongClickListener(v -> { Ui.haptic(v); if (selectMode) { if (!picked.remove(r.path)) picked.add(r.path); refreshTree(); } else itemMenu(r); return true; });
         return row;
+    }
+
+    // ---------------------------------------------------------------- bulk selection
+    private void buildSelBar() {
+        selBar = Ui.vbox(this);
+        selBar.setVisibility(View.GONE);
+        selBar.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 6));
+        LinearLayout r1 = Ui.hbox(this);
+        selInfo = Ui.label(this, "Nothing selected");
+        r1.addView(selInfo, Ui.weight(1f));
+        r1.addView(Ui.textButton(this, "All", R.attr.gpText, v -> { for (Row x : rows) picked.add(x.path); refreshTree(); }));
+        r1.addView(Ui.textButton(this, "None", R.attr.gpText, v -> { picked.clear(); refreshTree(); }));
+        r1.addView(Ui.textButton(this, "Invert", R.attr.gpText, v -> { for (Row x : rows) if (!picked.remove(x.path)) picked.add(x.path); refreshTree(); }));
+        selBar.addView(r1);
+        HorizontalScrollView hs = new HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout acts = Ui.hbox(this);
+        String[] labels = {"⬇ Download", "📂 Move", "📋 Copy to", "🗑 Delete", "🔍 By pattern", "🔗 Copy paths", "✕ Done"};
+        for (int i = 0; i < labels.length; i++) {
+            final int k = i;
+            acts.addView(Ui.chip(this, labels[i], i == 0, v -> bulkAction(k)), Ui.lp(this, Ui.WRAP, Ui.WRAP, 0, 0, 6, 0));
+        }
+        hs.addView(acts);
+        selBar.addView(hs, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 4, 0, 0));
+        explorerPanel.addView(selBar);
+    }
+
+    private void setSelectMode(boolean on) {
+        selectMode = on;
+        if (!on) picked.clear();
+        selBar.setVisibility(on ? View.VISIBLE : View.GONE);
+        refreshTree();
+    }
+
+    private List<Node> pickedFiles() {
+        LinkedHashMap<String, Node> out = new LinkedHashMap<>();
+        if (tree == null) return new ArrayList<>();
+        for (String p : picked) {
+            Node f = tree.file(p);
+            if (f != null) { out.put(f.path, f); continue; }
+            String pre = p + "/";
+            for (Node n : tree.all()) if (n.path.startsWith(pre)) out.put(n.path, n);
+        }
+        return new ArrayList<>(out.values());
+    }
+
+    private void updateSelInfo() {
+        if (selInfo == null) return;
+        if (picked.isEmpty()) { selInfo.setText("Tap items to select"); return; }
+        selInfo.setText(picked.size() + " selected  •  " + pickedFiles().size() + " files");
+    }
+
+    private void bulkAction(int k) {
+        if (k == 6) { setSelectMode(false); return; }
+        if (k == 4) {
+            Ui.prompt(this, "Select by pattern", "*.java, src/**/*.xml, !*.png", "", g -> {
+                String pat = g.trim();
+                if (pat.isEmpty()) return;
+                int n = 0;
+                for (Node f : tree.all()) if (ZipRules.matchesGlobs(pat, f.path)) { picked.add(f.path); n++; }
+                Ui.toast(this, n + " file(s) matched");
+                refreshTree();
+            });
+            return;
+        }
+        if (picked.isEmpty()) { Ui.toast(this, "Select something first"); return; }
+        syncCurrent();
+        final List<String> paths = new ArrayList<>(picked);
+        if (k == 0) bulkDownload();
+        else if (k == 1) pickFolder("Move " + paths.size() + " item(s) to", dest -> bulkMove(paths, dest));
+        else if (k == 2) pickFolder("Copy " + paths.size() + " item(s) to", dest -> bulkCopy(dest));
+        else if (k == 3) Ui.confirmDanger(this, "Delete " + paths.size() + " item(s)?", pickedFiles().size() + " file(s) are removed from the workspace (committed with your next commit).", "Delete", () -> {
+            for (String p : paths) {
+                mutateQuiet(() -> tree.delete(p));
+                for (int i = tabs.size() - 1; i >= 0; i--) { String tp = tabs.get(i).path; if (tp.equals(p) || tp.startsWith(p + "/")) closeTab(tabs.get(i)); }
+            }
+            picked.clear(); refreshTree(); renderTabs(); Ui.toast(this, "Deleted");
+        });
+        else if (k == 5) {
+            StringBuilder sb = new StringBuilder();
+            for (Node f : pickedFiles()) sb.append(f.path).append('\n');
+            Ui.copy(this, "paths", sb.toString().trim()); Ui.toast(this, "Paths copied");
+        }
+    }
+
+    private void mutateQuiet(Op op) { try { op.run(); } catch (IllegalArgumentException e) { Ui.toast(this, e.getMessage()); } }
+
+    private void bulkDownload() {
+        final List<Node> files = pickedFiles();
+        if (files.isEmpty()) { Ui.toast(this, "No files in the selection"); return; }
+        if (files.size() == 1 && picked.size() == 1 && tree.file(picked.iterator().next()) != null) {
+            final Node n = files.get(0);
+            Downloader.requestWrite(this, n.name(), (os, cb) -> os.write(contentOf(n)));
+            return;
+        }
+        long tot = 0; for (Node n : files) tot += Math.max(n.size, 1);
+        final long total = tot;
+        String single = picked.size() == 1 ? PathUtils.baseName(picked.iterator().next()) : repo + "-selection";
+        Downloader.requestWrite(this, single + ".zip", (os, cb) -> {
+            long done = 0;
+            ZipOutputStream zo = new ZipOutputStream(os);
+            for (Node n : files) {
+                zo.putNextEntry(new ZipEntry(n.path));
+                byte[] b = contentOf(n);
+                zo.write(b);
+                zo.closeEntry();
+                done += Math.max(n.size, 1);
+                cb.on(Math.min(done, total), total);
+            }
+            zo.finish();
+        });
+    }
+
+    private void bulkMove(List<String> paths, String dest) {
+        int ok = 0, bad = 0; String err = "";
+        for (String p : paths) {
+            String to = join(dest, PathUtils.baseName(p));
+            try { moveTo(p, to); ok++; } catch (IllegalArgumentException e) { bad++; err = e.getMessage(); }
+        }
+        picked.clear(); if (!dest.isEmpty()) expanded.add(dest);
+        refreshTree(); renderTabs();
+        Ui.toast(this, ok + " moved" + (bad > 0 ? ", " + bad + " skipped (" + err + ")" : ""));
+    }
+
+    private void bulkCopy(String dest) {
+        int ok = 0, bad = 0;
+        for (Node f : pickedFiles()) {
+            // keep the folder structure of a selected folder below the destination
+            String rel = f.name();
+            for (String p : picked) if (f.path.startsWith(p + "/")) { rel = PathUtils.baseName(p) + f.path.substring(p.length()); break; }
+            try { tree.duplicate(f.path, join(dest, rel)); ok++; } catch (IllegalArgumentException e) { bad++; }
+        }
+        picked.clear(); if (!dest.isEmpty()) expanded.add(dest);
+        refreshTree();
+        Ui.toast(this, ok + " copied" + (bad > 0 ? ", " + bad + " skipped (name exists)" : ""));
+    }
+
+    /** Folder chooser: root, every existing folder, or a typed path. */
+    private void pickFolder(String title, final Ui.Cb<String> cb) {
+        List<String> paths = new ArrayList<>();
+        for (Node n : tree.all()) paths.add(n.path);
+        final List<String> dirs = new ArrayList<>(new TreeSet<>(ZipRules.allFolders(paths, 400)));
+        final String[] labels = new String[dirs.size() + 2];
+        labels[0] = "📁  / (repository root)";
+        labels[1] = "✏  Type a path…";
+        for (int i = 0; i < dirs.size(); i++) labels[i + 2] = "📂  " + dirs.get(i);
+        Ui.pickList(this, title, labels, i -> {
+            if (i == 0) cb.on("");
+            else if (i == 1) Ui.prompt(this, title, "folder/sub-folder", selectedDir, t -> cb.on(PathUtils.trimSlashes(t.trim().replace("\\", "/"))));
+            else cb.on(dirs.get(i - 2));
+        });
     }
 
     private TextView extBadge(String name) {
@@ -471,8 +641,10 @@ public class IdeActivity extends BaseActivity {
         titleTv.setText(name);
         subTv.setText(t.path);
         boolean canPrev = t.kind.equals("text") && previewable(name);
-        previewChip.setVisibility(canPrev ? View.VISIBLE : View.GONE);
-        previewChip.setText(t.preview ? "Code" : "Preview");
+        previewChip.setVisibility(View.GONE);
+        previewIv.setVisibility(canPrev ? View.VISIBLE : View.GONE);
+        previewIv.setImageResource(t.preview ? R.drawable.i_code : R.drawable.i_eye);
+        previewIv.setAlpha(1f);
         jsChip.setVisibility(canPrev && t.preview && !PathUtils.isMarkdown(name) ? View.VISIBLE : View.GONE);
         jsChip.setText(t.jsOn ? "JS on" : "JS off");
         symbolBar.setVisibility(View.GONE);
@@ -720,6 +892,7 @@ public class IdeActivity extends BaseActivity {
         if (!dir) items.add("📋  Duplicate");
         items.add("⬆  Export" + (dir ? " as ZIP" : " to device"));
         items.add("🔗  Copy path");
+        items.add("☑  Select (bulk actions)");
         if (!dir && r.node != null && r.node.edited && !r.node.isNew) items.add("🧹  Discard my changes");
         items.add("🗑  Delete");
         final String[] arr = items.toArray(new String[0]);
@@ -734,6 +907,7 @@ public class IdeActivity extends BaseActivity {
             else if (l.contains("Duplicate")) Ui.prompt(this, "Duplicate as", "path", path.replace(".", "-copy."), n -> mutate(() -> { syncCurrent(); tree.duplicate(path, n.trim()); expandTo(n.trim()); }));
             else if (l.contains("Export")) { if (dir) exportFolder(path); else exportFile(path); }
             else if (l.contains("Copy path")) { Ui.copy(this, "path", path); Ui.toast(this, "Path copied"); }
+            else if (l.contains("Select (bulk")) { setSelectMode(true); picked.add(path); refreshTree(); }
             else if (l.contains("Discard")) mutate(() -> { tree.discard(path); for (Tab t : tabs) if (t.path.equals(path)) { t.dirty = false; if (t == cur) showTab(t); } });
             else Ui.confirmDanger(this, "Delete " + r.name + "?", dir ? "The folder and all files inside are removed from the workspace (committed with your next commit)." : "The file is removed from the workspace (committed with your next commit).", "Delete",
                         () -> mutate(() -> { tree.delete(path); for (int k = tabs.size() - 1; k >= 0; k--) { String tp = tabs.get(k).path; if (tp.equals(path) || tp.startsWith(path + "/")) closeTab(tabs.get(k)); } }));
@@ -939,6 +1113,7 @@ public class IdeActivity extends BaseActivity {
     }
 
     @Override public void onBackPressed() {
+        if (explorerOpen && selectMode) { setSelectMode(false); return; }
         if (explorerOpen) { toggleExplorer(false); return; }
         if (tree != null) {
             syncCurrent();

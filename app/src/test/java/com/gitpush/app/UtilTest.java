@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 
 import com.gitpush.app.util.BracketLint;
 import com.gitpush.app.util.GitHash;
+import com.gitpush.app.util.KeystoreKit;
+import com.gitpush.app.util.ReleaseOrder;
 import com.gitpush.app.util.SealedBox;
 import com.gitpush.app.util.PathUtils;
 import com.gitpush.app.util.ZipRules;
@@ -113,5 +115,52 @@ public class UtilTest {
         byte[] pk = java.util.Base64.getDecoder().decode("E75P6uryBMf9M1j8nAByGIHRdCeBKCJ+xnTzf3/pe20=");
         String out = java.util.Base64.getEncoder().encodeToString(SealedBox.seal("hello world".getBytes("UTF-8"), pk, esk));
         assertEquals("pOCSkrZRwni5dyxWn1+puxPZBrRqtoyd+dwrRAn4ogm3S+i/mdT9pPIqg7Co8GcaGiA0YOJfgkHTBcE=", out);
+    }
+
+    // ---------------------------------------------------------------- v2.1.0
+    @Test public void releaseSlotsAreOneDayApart() {
+        long d = 1_700_000_000_000L;
+        long[] slots = ReleaseOrder.slots(new long[]{d, d + 1000, d - ReleaseOrder.DAY / 2, d - 5 * ReleaseOrder.DAY});
+        for (int i = 1; i < slots.length; i++) assertTrue(slots[i - 1] - slots[i] >= ReleaseOrder.DAY);
+        assertEquals(d + 1000, slots[0]);
+    }
+
+    @Test public void releaseMoveAndVersionSort() {
+        java.util.List<String> l = new java.util.ArrayList<>(Arrays.asList("a", "b", "c", "d"));
+        ReleaseOrder.move(l, 3, 0);
+        assertEquals(Arrays.asList("d", "a", "b", "c"), l);
+        ReleaseOrder.move(l, 0, 99);
+        assertEquals("d", l.get(3));
+        assertTrue(ReleaseOrder.compareVersions("v1.10.0", "v1.9.9") > 0);
+        assertTrue(ReleaseOrder.compareVersions("Buildora-v2.1.0", "Buildora-v2.1.3") < 0);
+    }
+
+    @Test public void changesOnlyWhereDayDiffers() {
+        long d = 1_700_000_000_000L;
+        long[] slots = {d, d - ReleaseOrder.DAY, d - 2 * ReleaseOrder.DAY};
+        long[] old = {d + 100, d - 2 * ReleaseOrder.DAY, d - ReleaseOrder.DAY};
+        assertEquals(Arrays.asList(1, 2), ReleaseOrder.changes(slots, old));
+    }
+
+    @Test public void keystoreJksRoundTripAndFingerprints() throws Exception {
+        KeystoreKit.Spec sp = new KeystoreKit.Spec();
+        sp.cn = "Test App"; sp.o = "TanzirDev"; sp.c = "BD"; sp.years = 25;
+        KeystoreKit.Material m = KeystoreKit.generate(sp);
+        m.alias = "release";
+        char[] pw = "Secret123".toCharArray();
+        byte[] jks = KeystoreKit.write("JKS", m, pw, pw);
+        KeystoreKit.Material back = KeystoreKit.read(jks, pw, pw, "release");
+        assertTrue(Arrays.equals(m.key.getEncoded(), back.key.getEncoded()));
+        assertEquals(59, KeystoreKit.fingerprint(m.chain.get(0), "SHA-1").length());
+        assertEquals(95, KeystoreKit.fingerprint(m.chain.get(0), "SHA-256").length());
+        assertTrue(Arrays.equals(jks, KeystoreKit.unb64(KeystoreKit.b64(jks))));
+        try { KeystoreKit.read(jks, "wrong1".toCharArray(), pw, null); org.junit.Assert.fail(); } catch (java.security.GeneralSecurityException expected) { }
+    }
+
+    @Test public void keystoreRejectsBadInput() {
+        KeystoreKit.Spec sp = new KeystoreKit.Spec();
+        assertTrue(KeystoreKit.validate(sp) != null);
+        sp.cn = "x"; sp.c = "BANG";
+        assertTrue(KeystoreKit.validate(sp) != null);
     }
 }

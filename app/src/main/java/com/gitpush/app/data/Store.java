@@ -98,6 +98,15 @@ public class Store {
         if (secure != null) secure.edit().putString("ai_key", key).apply(); else memAiKey = key;
     }
 
+    // ---- download folder (SAF tree uri) ----
+    public String downloadTree() { return prefs.getString("download_tree", ""); }
+    public void downloadTree(String v) { prefs.edit().putString("download_tree", v == null ? "" : v).apply(); }
+
+    // ---- key vault (keystores + passwords, kept in the encrypted store; in memory only if the Keystore is unavailable) ----
+    private String memVault = "[]";
+    public String vaultJson() { return secure != null ? secure.getString("key_vault", "[]") : memVault; }
+    public void vaultJson(String v) { if (secure != null) secure.edit().putString("key_vault", v).apply(); else memVault = v; }
+
     // ---- favourite repos ----
     public java.util.Set<String> favorites() { return new java.util.HashSet<>(prefs.getStringSet("favorites", new java.util.HashSet<>())); }
     public void favorites(java.util.Set<String> v) { prefs.edit().putStringSet("favorites", v).apply(); }

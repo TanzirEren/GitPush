@@ -147,9 +147,14 @@ class HomeTab {
         r3.addView(action(R.drawable.i_import, "Import repo", v -> a.startActivity(new Intent(a, ImportRepoActivity.class))), cell(0, 4));
         r3.addView(action(R.drawable.i_toolbox, "Tools", v -> a.startActivity(new Intent(a, ToolsActivity.class))), cell(4, 4));
         r3.addView(action(R.drawable.i_file_text, "Report", v -> report()), cell(4, 0));
+        LinearLayout r4 = Ui.hbox(a);
+        r4.addView(action(R.drawable.i_settings, "Control", v -> RepoPicker.pick(a, "Control center for…", r -> ControlActivity.open(a, r.owner, r.name))), cell(0, 4));
+        r4.addView(action(R.drawable.i_key, "Signing", v -> KeyToolActivity.open(a)), cell(4, 4));
+        r4.addView(action(R.drawable.i_user, "Account", v -> ControlActivity.open(a, "", "")), cell(4, 0));
         col.addView(r1, side(0, 8));
         col.addView(r2, side(0, 8));
-        col.addView(r3, side(0, 4));
+        col.addView(r3, side(0, 8));
+        col.addView(r4, side(0, 4));
 
         // ---- latest build
         final LinearLayout latest = Ui.vbox(a);

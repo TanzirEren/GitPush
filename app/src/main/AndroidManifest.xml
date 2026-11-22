@@ -57,6 +57,13 @@
         <activity android:name=".ReleasesActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
         <activity android:name=".ReleaseEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".AiReadmeActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ControlActivity" android:exported="false" />
+        <activity android:name=".FeatureActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ReleaseOrderActivity" android:exported="false" />
+        <activity android:name=".KeyToolActivity" android:exported="false" />
+        <activity android:name=".KeyCreateActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".KeyDetailActivity" android:exported="false" />
+        <activity android:name=".SocialPreviewActivity" android:exported="false" />
         <activity android:name=".ToolsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

@@ -154,7 +154,7 @@ class ReposTab {
     private void menu(View anchor, final Repo r) {
         final AppState st = a.getAppState();
         final boolean fav = st.isFavorite(r.fullName);
-        final String[] items = {"⬆  Upload files", "💻  Code IDE (browse & edit)", "🕘  Commit history", "⚡  GitHub Actions", "🏷  Releases", "🔑  Secrets & variables", "✨  AI README writer",
+        final String[] items = {"⬆  Upload files", "💻  Code IDE (browse & edit)", "🕘  Commit history", "⚡  GitHub Actions", "🏷  Releases", "🔑  Secrets & variables", "⚙  Control center (issues, PRs, hooks…)", "🖼  Social preview", "✨  AI README writer",
                 fav ? "☆  Remove from favorites" : "⭐  Add to favorites", "✏  Edit repo info", "✏  Rename repository", "📂  Default branch", r.archived ? "📦  Unarchive repository" : "📦  Archive repository",
                 "🏷  Topics", "⬇  Download ZIP", "ℹ  Details & permissions", "🔗  Copy clone URL", "🌐  Open on GitHub", "🗑  Delete repository"};
         Ui.pickList(a, r.fullName, items, i -> {
@@ -165,6 +165,8 @@ class ReposTab {
             else if (l.contains("GitHub Actions")) ActionsActivity.open(a, r.owner, r.name);
             else if (l.contains("Releases")) ReleasesActivity.open(a, r.owner, r.name);
             else if (l.contains("Secrets")) SecretsActivity.open(a, r.owner, r.name);
+            else if (l.contains("Control center")) ControlActivity.open(a, r.owner, r.name);
+            else if (l.contains("Social preview")) SocialPreviewActivity.open(a, r.owner, r.name);
             else if (l.contains("AI README")) AiReadmeActivity.open(a, r.owner, r.name);
             else if (l.contains("favorites")) { st.toggleFavorite(r.fullName); render(); Ui.toast(a, fav ? "Removed from favorites" : "Added to favorites"); }
             else if (l.contains("Edit repo info")) editInfo(r);

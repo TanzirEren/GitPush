@@ -423,12 +423,14 @@ public class GitHubApi {
     }
 
     /** Authenticated GET streamed into [out] (follows redirects; used for zipballs, logs, artifacts). */
-    public void stream(String url, OutputStream out, ProgressCb cb) throws ApiException {
+    public void stream(String url, OutputStream out, ProgressCb cb) throws ApiException { stream(url, out, cb, "application/vnd.github+json"); }
+
+    public void stream(String url, OutputStream out, ProgressCb cb, String accept) throws ApiException {
         Call call = null;
         try {
             String full = url.startsWith("http") ? url : "https://api.github.com" + url;
             Request req = new Request.Builder().url(full).header("Authorization", "Bearer " + token)
-                    .header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28")
+                    .header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28")
                     .header("User-Agent", "GitPush-Android").get().build();
             call = CLIENT.newCall(req);
             calls.add(call);
@@ -610,9 +612,12 @@ public class GitHubApi {
     }
 
     public List<Release> releases(String owner, String repo) throws ApiException {
-        JSONArray arr = ok(call("GET", rp(owner, repo) + "/releases?per_page=30", null)).array();
         List<Release> out = new ArrayList<>();
-        for (int i = 0; i < arr.length(); i++) { JSONObject j = arr.optJSONObject(i); if (j != null) out.add(parseRelease(j)); }
+        for (int page = 1; page <= 4; page++) {
+            JSONArray arr = ok(call("GET", rp(owner, repo) + "/releases?per_page=50&page=" + page, null)).array();
+            for (int i = 0; i < arr.length(); i++) { JSONObject j = arr.optJSONObject(i); if (j != null) out.add(parseRelease(j)); }
+            if (arr.length() < 50) break;
+        }
         return out;
     }
 
@@ -702,4 +707,121 @@ public class GitHubApi {
     }
 
     public void deleteVariable(String owner, String repo, String name) throws ApiException { ok(call("DELETE", rp(owner, repo) + "/actions/variables/" + enc(name), null)); }
+
+    // ---------------------------------------------------------------- generic helpers (v2.1)
+    /** Path relative to api.github.com. Handles 204/empty bodies. */
+    public JSONObject send(String method, String path, JSONObject body) throws ApiException {
+        Resp r = ok(call(method, path, body == null ? null : jsonBody(body)));
+        if (r.body == null || r.body.trim().isEmpty()) return new JSONObject();
+        try { return new JSONObject(r.body); } catch (JSONException e) { return new JSONObject(); }
+    }
+
+    public JSONObject getObj(String path) throws ApiException { return ok(call("GET", path, null)).json(); }
+
+    /** First page as array (path may already contain a query string). */
+    public JSONArray getArr(String path) throws ApiException { return ok(call("GET", path, null)).array(); }
+
+    /** Follows pages (per_page=100) up to maxPages. If [key] is not null the array is read from that field of the object. */
+    public JSONArray getAll(String path, String key, int maxPages) throws ApiException {
+        JSONArray out = new JSONArray();
+        for (int page = 1; page <= maxPages; page++) {
+            String u = path + (path.contains("?") ? "&" : "?") + "per_page=100&page=" + page;
+            Resp r = ok(call("GET", u, null));
+            JSONArray arr;
+            if (key == null) arr = r.array();
+            else { arr = r.json().optJSONArray(key); if (arr == null) arr = new JSONArray(); }
+            for (int i = 0; i < arr.length(); i++) out.put(arr.opt(i));
+            if (arr.length() < 100) break;
+        }
+        return out;
+    }
+
+    /** Statistics endpoints answer 202 while GitHub computes them – retry a few times. */
+    public JSONArray getStatsArr(String path) throws ApiException {
+        for (int i = 0; i < 5; i++) {
+            Resp r = call("GET", path, null);
+            if (r.code == 202) { sleep(2500); continue; }
+            if (r.code == 204) return new JSONArray();
+            ok(r);
+            return r.array();
+        }
+        return new JSONArray();
+    }
+
+    public String getText(String path, String accept) throws ApiException {
+        final java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+        stream(path, bo, null, accept);
+        try { return bo.toString("UTF-8"); } catch (Exception e) { return bo.toString(); }
+    }
+
+    /** Plain public GET (no token) – used for images such as the live social card. */
+    public byte[] fetchPublic(String url, int maxBytes) throws ApiException {
+        try (Response r = CLIENT.newCall(new Request.Builder().url(url).header("User-Agent", "GitPush-Android").get().build()).execute()) {
+            if (!r.isSuccessful() || r.body() == null) throw new ApiException(r.code(), "Could not load image (" + r.code() + ")");
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            try (InputStream in = r.body().byteStream()) {
+                byte[] buf = new byte[32768]; int n;
+                while ((n = in.read(buf)) >= 0) { bo.write(buf, 0, n); if (bo.size() > maxBytes) throw new ApiException(-3, "Image too large"); }
+            }
+            return bo.toByteArray();
+        } catch (IOException e) { throw new ApiException(-1, "Network error: " + e.getMessage()); }
+    }
+
+    public static String enc2(String s) { return enc(s); }
+    public static String repoPath(String owner, String repo) { return rp(owner, repo); }
+    public static JSONObject jo(Object... kv) { return obj(kv); }
+
+    // ---------------------------------------------------------------- tags / refs / dated commits
+    /** Returns {sha, type} of refs/tags/[tag] or null when the tag does not exist. */
+    public String[] tagRef(String owner, String repo, String tag) throws ApiException {
+        Resp r = call("GET", rp(owner, repo) + "/git/ref/tags/" + encPath(tag), null);
+        if (r.code == 404) return null;
+        ok(r);
+        JSONObject ob = o(r.json(), "object");
+        return new String[]{ob.optString("sha"), ob.optString("type")};
+    }
+
+    /** Commit that a tag finally points to (peels annotated tags). Returns null if missing. */
+    public String tagCommit(String owner, String repo, String tag) throws ApiException {
+        String[] t = tagRef(owner, repo, tag);
+        if (t == null) return null;
+        String sha = t[0];
+        for (int i = 0; i < 4 && "tag".equals(t[1]); i++) {
+            JSONObject ob = o(ok(call("GET", rp(owner, repo) + "/git/tags/" + sha, null)).json(), "object");
+            sha = ob.optString("sha"); t = new String[]{sha, ob.optString("type")};
+        }
+        return sha;
+    }
+
+    /** Raw git commit JSON (tree.sha, author, committer, message). */
+    public JSONObject gitCommit(String owner, String repo, String sha) throws ApiException {
+        return ok(call("GET", rp(owner, repo) + "/git/commits/" + sha, null)).json();
+    }
+
+    /** Creates or force-moves refs/tags/[tag] to [sha] (lightweight tag). */
+    public void setTag(String owner, String repo, String tag, String sha) throws ApiException {
+        if (tagRef(owner, repo, tag) == null)
+            ok(call("POST", rp(owner, repo) + "/git/refs", jsonBody(obj("ref", "refs/tags/" + tag, "sha", sha))));
+        else
+            ok(call("PATCH", rp(owner, repo) + "/git/refs/tags/" + encPath(tag), jsonBody(obj("sha", sha, "force", true))));
+    }
+
+    public void deleteTag(String owner, String repo, String tag) throws ApiException {
+        ok(call("DELETE", rp(owner, repo) + "/git/refs/tags/" + encPath(tag), null));
+    }
+
+    /** New commit with the SAME tree as [orig] (child of it) but a chosen author/committer date. Returns the new sha. */
+    public String createDatedCommit(String owner, String repo, JSONObject orig, String origSha, String message, String isoDate) throws ApiException {
+        try {
+            JSONObject a = new JSONObject(o(orig, "author").toString()).put("date", isoDate);
+            JSONObject c = new JSONObject(o(orig, "committer").toString()).put("date", isoDate);
+            JSONObject body = new JSONObject().put("message", message).put("tree", o(orig, "tree").optString("sha"))
+                    .put("parents", new JSONArray().put(origSha)).put("author", a).put("committer", c);
+            return ok(call("POST", rp(owner, repo) + "/git/commits", jsonBody(body))).json().optString("sha");
+        } catch (JSONException e) { throw new ApiException(-3, "Could not build commit: " + e.getMessage()); }
+    }
+
+    public void makeLatest(String owner, String repo, long releaseId) throws ApiException {
+        ok(call("PATCH", rp(owner, repo) + "/releases/" + releaseId, jsonBody(obj("make_latest", "true"))));
+    }
 }

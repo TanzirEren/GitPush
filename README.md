@@ -6,13 +6,24 @@
 
 **A premium black-and-white GitHub toolkit for your phone: push, edit code, run Actions, publish releases.**
 
-`com.gitpush.app` · v2.0.0 · Android 7.0+ · Java + XML
+`com.gitpush.app` · v2.1.0 · Android 7.0+ · Java + XML
 
 </div>
 
 ---
 
-## What's new in v2.0.0
+## What's new in v2.1.0
+- **Release tags are editable** – rename a tag, tag a specific commit, force-move it to a branch head, delete the old tag, mark "Latest".
+- **Release Order Studio** – put any release first, last or anywhere between (move, swap, "move to position", reverse, sort by version/title/date). Applying gives each tag a date-anchor commit (same files, new date) because GitHub orders releases by tag-commit date. One-tap **undo**.
+- **New launcher icon** (the GP mark, adaptive + round + monochrome-ready).
+- **Code IDE** – preview icon (Markdown / HTML) in the toolbar left of Save; **bulk select** in the explorer (all / none / invert / by pattern) → download (ZIP or single file), delete, move, copy to, copy paths.
+- **Downloads fixed** – files are created with their real MIME type and clashes become `name (1).zip`, so ZIP/APK files always unzip. The folder is remembered (Profile → Download folder).
+- **Job logs** – GitHub-style select & copy mode, copy line / range / errors only / whole log.
+- **APK signing tool** – generate RSA/EC keystores on the phone (.p12, .jks, .bks), fingerprints (SHA-1/256, MD5, Facebook hash), key vault, import/convert, push `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` to several repos at once, ready-to-copy workflow/Gradle snippets, full ZIP with `key.txt`, inspect any APK's signing certificate.
+- **Social preview studio** – generates or fits a 1280×640 image (<1 MB), saves/commits it and opens the exact GitHub settings page (GitHub has no upload API).
+- **Control center (18 new GitHub controls)** – Issues, Pull requests, Branches & tags (+ protection), Collaborators & invitations, Webhooks (+ deliveries), Deploy keys, Labels & milestones, Insights (traffic, clones, languages), Repo settings & security, GitHub Pages, Actions cleaner (caches/runs), Environments (+ environment secrets/variables), Security alerts, Gists, Notifications, Starred repos, Bulk repo actions, Search, Profile editor.
+
+## What was new in v2.0.0
 - **Complete redesign** – premium monochrome SaaS design system (soft cards, black buttons, Manrope + Inter + Space Mono, one Lucide-style vector icon family, no emoji icons).
 - **Code IDE** – glass file explorer, file tabs, pinch-zoom editor, undo / redo, syntax highlight, red error marks, Markdown & HTML preview, one-commit saving.
 - **ZIP extractor v2** – tree & list views, folder selection, filters, path find & replace, presets, previews and more.
