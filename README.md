@@ -33,6 +33,8 @@ Import is now a full GitHub-style studio: look up any repo, browse it, tick exac
 17. **Batch import (loop)** – paste many repos, they import one after another.
 18. **Sync Loop (loop)** – keep any copy updated automatically: every 15 min – 24 h only files whose git hash changed are copied in ONE commit, optional mirror-deletes, pause/resume, "Sync now", link any two repos manually.
 
+19. **Keyboard and dialog fixes** – tall dialogs scroll with the buttons always visible, IME Next/Done/Go/Search keys, URL keyboard, no autocorrect on names and paths.
+
 Limits (GitHub itself): secret values cannot be read, Actions run history and pull requests cannot be copied, issue dates/authors become a note, tags point at the import commit (replayed history cannot reuse original SHAs), submodule contents are not copied, files over 50 MB are skipped.
 
 ## What was new in v2.1.0

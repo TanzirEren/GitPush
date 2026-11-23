@@ -9,6 +9,8 @@ import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.OvershootInterpolator;
@@ -94,7 +96,7 @@ public class GlassDialog {
                 card.addView(sv, Ui.lp(ctx, Ui.MATCH, Ui.dp(ctx, 260), 0, 12, 0, 0));
             } else card.addView(m, Ui.lp(ctx, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
         }
-        if (customView != null) card.addView(customView, Ui.lp(ctx, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
+        if (customView != null) card.addView(boundedBody(customView), Ui.lp(ctx, Ui.MATCH, Ui.WRAP, 0, 12, 0, 0));
         if (items != null) {
             LinearLayout list = Ui.vbox(ctx);
             itemList = list;
@@ -123,6 +125,27 @@ public class GlassDialog {
         } else card.setPadding(card.getPaddingLeft(), card.getPaddingTop(), card.getPaddingRight(), Ui.dp(ctx, 16));
     }
 
+    /**
+     * Tall custom content (forms) scrolls inside the dialog and never pushes the buttons off screen. The scroll area is capped
+     * to whatever height is left (also while the keyboard is open) minus room for the button row.
+     */
+    private View boundedBody(View v) {
+        if (v instanceof ScrollView || (v instanceof ViewGroup && ((ViewGroup) v).getChildCount() > 0 && ((ViewGroup) v).getChildAt(0) instanceof ScrollView)) return v;
+        final int reserve = Ui.dp(ctx, 104);
+        ScrollView sv = new ScrollView(ctx) {
+            @Override protected void onMeasure(int w, int h) {
+                int avail = MeasureSpec.getSize(h);
+                int cap = Math.max(Ui.dp(ctx, 120), avail - reserve);
+                int max = (int) (ctx.getResources().getDisplayMetrics().heightPixels * 0.72f);
+                super.onMeasure(w, MeasureSpec.makeMeasureSpec(Math.min(cap, max), MeasureSpec.AT_MOST));
+            }
+        };
+        sv.setFillViewport(false);
+        sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        sv.addView(v);
+        return sv;
+    }
+
     private int countLines(CharSequence s) { int n = 1; for (int i = 0; i < s.length(); i++) if (s.charAt(i) == '\n') n++; return n; }
 
     private Button mk(final int i, boolean primary) {
@@ -147,6 +170,7 @@ public class GlassDialog {
             DisplayMetrics dm = ctx.getResources().getDisplayMetrics();
             int width = Math.min((int) (dm.widthPixels * 0.92f), Ui.dp(ctx, 440));
             w.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+            w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
             w.setGravity(Gravity.CENTER);
             w.setDimAmount(0.45f);
             w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -165,6 +189,10 @@ public class GlassDialog {
     public void dismiss() {
         if (dialog == null || !dialog.isShowing() || closing) return;
         closing = true;
+        try {
+            InputMethodManager imm = (InputMethodManager) ctx.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.hideSoftInputFromWindow(card.getWindowToken(), 0);
+        } catch (Exception ignored) { }
         card.animate().alpha(0f).scaleX(0.94f).scaleY(0.94f).translationY(Ui.dp(ctx, 10)).setDuration(140).withEndAction(() -> {
             try { dialog.dismiss(); } catch (Exception ignored) { }
             closing = false;

@@ -102,6 +102,9 @@ public class ImportRepoActivity extends BaseActivity {
         c.addView(Ui.label(this, "Source repository"));
         input = Ui.input(this, "github.com/owner/repo  or  owner/repo", "");
         input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
+        input.setOnEditorActionListener((tv, action, ev) -> { hideKb(); lookup(input.getText().toString(), null); return true; });
         c.addView(input, Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 8, 0, 0));
         c.addView(Ui.button(this, "🔍 Look up", v -> lookup(input.getText().toString(), null)), Ui.lp(this, Ui.MATCH, Ui.WRAP, 0, 10, 0, 0));
         LinearLayout two = Ui.hbox(this);
@@ -267,6 +270,7 @@ public class ImportRepoActivity extends BaseActivity {
 
     private void showTab(int i) {
         tab = i;
+        hideKb();
         tabsBar.removeAllViews();
         for (int k = 0; k < TABS.length; k++) {
             final int kk = k;
@@ -420,6 +424,8 @@ public class ImportRepoActivity extends BaseActivity {
         top.setPadding(Ui.dp(this, 16), Ui.dp(this, 4), Ui.dp(this, 16), Ui.dp(this, 4));
         final EditText search = Ui.input(this, "Search files…", query);
         search.setSingleLine(true);
+        search.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        search.setOnEditorActionListener((tv, action, ev) -> { hideKb(); return true; });
         search.addTextChangedListener(new android.text.TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             public void onTextChanged(CharSequence s, int a, int b, int c) { }
@@ -575,6 +581,7 @@ public class ImportRepoActivity extends BaseActivity {
             final EditText e = Ui.input(this, "value for " + name, secretVals.containsKey(name) ? secretVals.get(name) : "");
             e.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
             e.setSingleLine(true);
+            e.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
             e.addTextChangedListener(new android.text.TextWatcher() {
                 public void beforeTextChanged(CharSequence s, int a, int b, int d) { }
                 public void onTextChanged(CharSequence s, int a, int b, int d) { }
@@ -629,7 +636,16 @@ public class ImportRepoActivity extends BaseActivity {
     }
 
     // ================================================================== import flow
+    private void hideKb() {
+        try {
+            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            View f = getCurrentFocus();
+            if (imm != null && f != null) { imm.hideSoftInputFromWindow(f.getWindowToken(), 0); f.clearFocus(); }
+        } catch (Exception ignored) { }
+    }
+
     private void beginFlow() {
+        hideKb();
         if (src.tree.root.files > 0 && src.tree.selected.isEmpty()) {
             Ui.confirm(this, "Nothing selected", "No files are ticked, so everything will be imported. Continue?", "Import everything", () -> { src.tree.selectAll(); if (tab == 1) refreshRows(); settingsDialog(); });
             return;
@@ -641,13 +657,13 @@ public class ImportRepoActivity extends BaseActivity {
         if (src.repo.sizeKb > 150 * 1024) { Ui.toast(this, "Repository is over 150 MB – too big to import on a phone"); return; }
         List<Form.F> f = Form.list(
                 Form.choice("target", "Import into", new String[]{"New repository", "Existing repository"}, dTarget),
-                Form.text("name", "New repository name", dName),
+                Form.text("name", "New repository name", dName).plain(),
                 Form.text("desc", "Description", dDesc),
-                Form.text("home", "Homepage URL", dHome),
-                Form.text("topics", "Topics (comma separated)", dTopics),
+                Form.text("home", "Homepage URL", dHome).url(),
+                Form.text("topics", "Topics (comma separated)", dTopics).plain(),
                 Form.choice("vis", "Visibility", new String[]{"Private", "Public"}, dPriv ? 0 : 1),
-                Form.text("existing", "Existing repo (owner/name) – only if importing into existing", dExisting),
-                Form.text("dir", "Folder inside the existing repo (optional)", dDir),
+                Form.text("existing", "Existing repo (owner/name) – only if importing into existing", dExisting).plain(),
+                Form.text("dir", "Folder inside the existing repo (optional)", dDir).plain(),
                 Form.toggle("note", "Add “imported from” note to description", dNote),
                 Form.choice("sync", "Keep in sync (loop)", new String[]{"Off", "15 min", "1 hour", "6 hours", "24 hours"}, dSync),
                 Form.toggle("syncdel", "Sync also deletes removed files", dSyncDel));

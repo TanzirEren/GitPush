@@ -22,8 +22,11 @@ public final class Form {
 
     public static final class F {
         final String key, label, type; String init = ""; String[] opts; int idx; boolean on; EditText edit; LinearLayout chips; String hint = "";
+        int kind;   // 0 normal text, 1 url, 2 no-suggestions (names, paths, topics), 3 digits
         F(String key, String label, String type) { this.key = key; this.label = label; this.type = type; }
         public F hint(String h) { hint = h; return this; }
+        public F url() { kind = 1; return this; }
+        public F plain() { kind = 2; return this; }
     }
 
     public static F text(String key, String label, String init) { F f = new F(key, label, "text"); f.init = init == null ? "" : init; return f; }
@@ -58,11 +61,24 @@ public final class Form {
                 box.addView(f.edit, Ui.lp(c, Ui.MATCH, Ui.WRAP, 0, 4, 0, 0));
             }
         }
-        ScrollView sv = new ScrollView(c);
-        sv.addView(box);
-        LinearLayout wrap = Ui.vbox(c);
-        wrap.addView(sv, new LinearLayout.LayoutParams(Ui.MATCH, Ui.WRAP));
-        new GlassDialog(c).setTitle(title).setIcon(icon).setView(wrap).setPositiveButton(positive, (d, w) -> {
+        // keyboard: Next moves to the following field, Done on the last one; the dialog scrolls and resizes with the keyboard
+        List<F> inputs = new ArrayList<>();
+        for (F f : fields) if (f.edit != null) inputs.add(f);
+        for (int i = 0; i < inputs.size(); i++) {
+            final F f = inputs.get(i);
+            final boolean last = i == inputs.size() - 1;
+            if (f.type.equals("multi")) continue;
+            f.edit.setImeOptions(last ? android.view.inputmethod.EditorInfo.IME_ACTION_DONE : android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+            if (f.type.equals("text")) {
+                int base = android.text.InputType.TYPE_CLASS_TEXT;
+                if (f.kind == 1) base |= android.text.InputType.TYPE_TEXT_VARIATION_URI;
+                else if (f.kind == 2) base |= android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+                else base |= android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
+                f.edit.setInputType(base);
+            }
+            f.edit.setSelectAllOnFocus(false);
+        }
+        new GlassDialog(c).setTitle(title).setIcon(icon).setView(box).setPositiveButton(positive, (d, w) -> {
             Map<String, String> out = new LinkedHashMap<>();
             for (F f : fields) {
                 if (f.type.equals("toggle")) out.put(f.key, String.valueOf(f.on));

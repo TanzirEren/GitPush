@@ -14,6 +14,10 @@
 - 🔁 **Batch import** (loop over many URLs) and **Sync Loop** (auto-update copies, only changed files, one commit per run)
 - 🛠 `gradlew` and other executables keep their executable bit
 
+## Fixes
+- Dialog buttons (Review / Cancel / Save…) were pushed off-screen by tall forms such as Import settings. Tall dialog content now scrolls inside the dialog, always leaves room for the buttons, and shrinks while the keyboard is open.
+- Keyboard: Next/Done keys move through form fields, URL fields get the URL keyboard, name/topic/path fields turn off autocorrect, the Look up field has a Go key, the file search has a Search key, and the keyboard hides when you switch tabs or tap Import.
+
 ## Good to know
 - GitHub never reveals secret values, has no API for Actions run history, and pull requests cannot be recreated. GitPush lists the secrets your workflows use so you can type them once.
 - Tags in the new repo point at the import commit (or the last replayed commit).
