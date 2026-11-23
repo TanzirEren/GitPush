@@ -318,7 +318,7 @@ public class GitHubApi {
         JSONArray arr = new JSONArray();
         try {
             for (NewEntry e : entries) {
-                JSONObject j = new JSONObject().put("path", e.path).put("mode", "100644").put("type", "blob");
+                JSONObject j = new JSONObject().put("path", e.path).put("mode", e.mode == null ? "100644" : e.mode).put("type", "blob");
                 if (e.delete) j.put("sha", JSONObject.NULL);
                 else if (e.content != null) j.put("content", e.content);
                 else j.put("sha", e.sha);

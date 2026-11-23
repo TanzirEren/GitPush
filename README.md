@@ -6,13 +6,36 @@
 
 **A premium black-and-white GitHub toolkit for your phone: push, edit code, run Actions, publish releases.**
 
-`com.gitpush.app` · v2.1.0 · Android 7.0+ · Java + XML
+`com.gitpush.app` · v2.2.0 · Android 7.0+ · Java + XML
 
 </div>
 
 ---
 
-## What's new in v2.1.0
+## What's new in v2.2.0 — Import Studio
+Import is now a full GitHub-style studio: look up any repo, browse it, tick exactly what to copy (nothing ticked = everything), then import in the background with notifications.
+1. **Smart URL parser** – `owner/repo`, https, `.git`, SSH, `/tree/branch`, `/releases/tag/v1` links; **Paste** button.
+2. **Repo X-ray** – description, homepage, topics, license, language, stars/forks, dates, size, counts of files/releases/workflows/issues/labels.
+3. **File tree with tri-state checkboxes** (folders expand, partial selection shown), search, size per folder.
+4. **Selection tools** – All / None / Invert / glob pattern / *Source only* / *Skip junk* / *Docs* / Expand all.
+5. **Branch, tag or commit SHA picker** – import any ref.
+6. **Releases picker** – choose releases, copy notes, draft/pre-release flags and **assets**; created oldest-first, newest becomes Latest.
+7. **Actions tab** – pick workflow files, recent runs; workflows are pushed **last** in their own commit with `[skip ci]` (optional) so the import and releases never trigger them; optional auto-disable.
+8. **Secrets & variables** – variables are copied; secrets (GitHub never reveals values) are listed from the workflows and you type the ones you want – encrypted on the device and written to the new repo.
+9. **Commit history replay** – last 10/25/50/100 commits recreated with messages, original authors and dates (first-parent line) or a fresh single commit.
+10. **Issues, labels & milestones** – open or all, optional comments, closed state kept, @mentions neutralised so nobody is pinged, paced for GitHub abuse limits.
+11. **Pre-import dialog** – name (availability checked), description, homepage, topics, public/private, optional "imported from" note.
+12. **Import into an existing repo / folder** – with replace-or-skip conflict handling.
+13. **Dry-run review** – a summary of exactly what will be created before anything happens.
+14. **Background engine** – foreground service, progress notification, finish notification, cancel, resumable steps.
+15. **Jobs screen** – live log (copy), per-step status, **Retry failed steps**, import history.
+16. **Executable bit kept** – `gradlew` and other 100755 files stay executable (new in the push engine too).
+17. **Batch import (loop)** – paste many repos, they import one after another.
+18. **Sync Loop (loop)** – keep any copy updated automatically: every 15 min – 24 h only files whose git hash changed are copied in ONE commit, optional mirror-deletes, pause/resume, "Sync now", link any two repos manually.
+
+Limits (GitHub itself): secret values cannot be read, Actions run history and pull requests cannot be copied, issue dates/authors become a note, tags point at the import commit (replayed history cannot reuse original SHAs), submodule contents are not copied, files over 50 MB are skipped.
+
+## What was new in v2.1.0
 - **Release tags are editable** – rename a tag, tag a specific commit, force-move it to a branch head, delete the old tag, mark "Latest".
 - **Release Order Studio** – put any release first, last or anywhere between (move, swap, "move to position", reverse, sort by version/title/date). Applying gives each tag a date-anchor commit (same files, new date) because GitHub orders releases by tag-commit date. One-tap **undo**.
 - **New launcher icon** (the GP mark, adaptive + round + monochrome-ready).

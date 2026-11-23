@@ -71,10 +71,13 @@ public final class Models {
     public static class NewEntry {
         public final String path, sha, content;
         public final boolean delete;
+        /** Git file mode: 100644 normal, 100755 executable, 120000 symlink. */
+        public String mode = "100644";
         public NewEntry(String path, String sha, String content, boolean delete) { this.path = path; this.sha = sha; this.content = content; this.delete = delete; }
         public static NewEntry blob(String path, String sha) { return new NewEntry(path, sha, null, false); }
         public static NewEntry text(String path, String content) { return new NewEntry(path, null, content, false); }
         public static NewEntry remove(String path) { return new NewEntry(path, null, null, true); }
+        public NewEntry withMode(String m) { if (m != null && !m.isEmpty()) mode = m; return this; }
     }
 
     public static class FileData {

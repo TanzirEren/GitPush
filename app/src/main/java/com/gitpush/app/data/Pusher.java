@@ -50,6 +50,8 @@ public final class Pusher {
         public final String branch, targetDir, message, description;
         public final List<StagedFile> files;
         public String[] paths;
+        /** Optional git modes (path in repo -> 100755 / 120000) so executables such as gradlew keep their bit. */
+        public final Map<String, String> modes = new ConcurrentHashMap<>();
         private long[] sizes;
         private int[] state;
         private String[] note;
@@ -241,11 +243,11 @@ public final class Pusher {
             if (s.textPaths.contains(p)) {
                 String text = tryText(readAll(s.files.get(i).open(ctx)));
                 if (text == null) throw new IllegalStateException("File changed while uploading: " + p);
-                chunk.add(NewEntry.text(p, text)); chunkBytes += s.sizes[i];
+                chunk.add(NewEntry.text(p, text).withMode(s.modes.get(p))); chunkBytes += s.sizes[i];
             } else {
                 String sha = s.blobCache.get(p);
                 if (sha == null) throw new IllegalStateException("Missing blob for " + p);
-                chunk.add(NewEntry.blob(p, sha));
+                chunk.add(NewEntry.blob(p, sha).withMode(s.modes.get(p)));
             }
             if (chunk.size() >= 100 || chunkBytes > 6_000_000L) {
                 tree = api.createTree(o, r, tree, chunk); chunk = new ArrayList<>(); chunkBytes = 0;

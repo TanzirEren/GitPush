@@ -52,6 +52,7 @@
         <activity android:name=".JobLogActivity" android:exported="false" />
         <activity android:name=".SecretsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ImportRepoActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ImportJobsActivity" android:exported="false" />
         <activity android:name=".ZipActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ActionsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
         <activity android:name=".ReleasesActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />

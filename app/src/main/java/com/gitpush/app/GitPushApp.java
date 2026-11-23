@@ -21,6 +21,7 @@ public class GitPushApp extends Application {
         state = new AppState(this);
         state.applyNightMode();
         io.execute(this::cleanCache);
+        main.postDelayed(() -> { try { com.gitpush.app.imp.SyncLoop.resume(this); } catch (Exception ignored) { } }, 2500);
     }
 
     /** Removes extracted ZIP leftovers older than a day. */
