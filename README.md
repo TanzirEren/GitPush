@@ -6,13 +6,26 @@
 
 **A premium black-and-white GitHub toolkit for your phone: push, edit code, run Actions, publish releases.**
 
-`com.gitpush.app` · v2.2.0 · Android 7.0+ · Java + XML
+`com.gitpush.app` · v2.3.0 · Android 7.0+ · Java + XML
 
 </div>
 
 ---
 
-## What's new in v2.2.0 — Import Studio
+## What's new in v2.3.0 — Codespaces
+
+- **Codespaces hub** (Home → Codespaces, or a repo's ⋯ menu): list with status, repo, branch, machine, last used and a git-dirty indicator; filters and search; auto-refresh while a codespace is starting or stopping.
+- **Create**: guided (branch, machine type with specs and core-hour rate, dev container, region, idle timeout, retention, name), quick create with repo defaults, or from a pull request; permissions check first.
+- **Manage**: start, stop, rename, change machine, delete, bulk stop/delete, stop all running, details, export to a branch, publish to a new repo.
+- **Mobile VS Code**: real VS Code Web of your codespace in a WebView (desktop user agent, selectable layout width), starting screen with progress, phone **key bar** (Esc, Tab, Ctrl+letter grid, Alt, Shift, arrows, symbols, ^C ^D ^L ^R ^Z, palette, terminal, copy/paste), full-screen toggle, tablet split view (hub left, editor right), port preview.
+- **Terminal pad**: run code (Bash, Python, Node, TypeScript, Java, Go, C, C++, Rust, PHP, Ruby) in the codespace terminal; **Output** mirrored natively so you can long-press / select / copy; selection menu adds Run, Explain and Save snippet; snippet library, command history, favorites, ports.
+- **AI** (your own key): plain words to command, explain output, fix code, AI dev container for a repo.
+- **Secrets**: Codespaces secrets for your account (choose repositories) or one repo; sealed on the device.
+- **Cost safety**: stop when I leave, still-running reminders with a Stop button.
+- **Organizations**: list, stop and delete org members' codespaces (owners only).
+- Token scope `codespace` is now requested at sign-in (PAT users must tick it).
+
+## What was new in v2.2.0 — Import Studio
 Import is now a full GitHub-style studio: look up any repo, browse it, tick exactly what to copy (nothing ticked = everything), then import in the background with notifications.
 1. **Smart URL parser** – `owner/repo`, https, `.git`, SSH, `/tree/branch`, `/releases/tag/v1` links; **Paste** button.
 2. **Repo X-ray** – description, homepage, topics, license, language, stars/forks, dates, size, counts of files/releases/workflows/issues/labels.
@@ -136,6 +149,8 @@ app/src/main/res/      monochrome theme, drawables, 90+ vector icons, fonts
 ```
 
 ## Limits & notes
+
+- Codespaces: GitHub has no public API for the terminal, files or editor of a running codespace, for port visibility, or for reading terminal output. GitPush embeds VS Code Web and pastes/sends keys into it (best effort), and mirrors run output through a read-only file server on forwarded port 7799. Downloads from VS Code Web are not supported in the in-app view.
 - Files over 50 MB are blocked (Git LFS); 25 MB+ shows a warning.
 - IDE changes live in memory until you commit – the app asks before you leave with uncommitted changes.
 - Code colors are off by default (monochrome); error marks are the only red in the app by design.

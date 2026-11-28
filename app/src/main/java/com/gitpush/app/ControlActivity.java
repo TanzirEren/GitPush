@@ -35,6 +35,7 @@ public class ControlActivity extends BaseActivity {
             Feature f = e.getValue();
             card(col, f.icon() + "  " + f.title(), f.blurb(), v -> FeatureActivity.open(this, e.getKey(), owner, repo));
         }
+        card(col, "☁  Codespaces", account ? "All your codespaces: VS Code, terminal, secrets" : "Codespaces of this repo: create, open VS Code, terminal", v -> CodespacesActivity.open(this, owner, repo));
         if (!account) {
             card(col, "🖼  Social preview", "Prepare and upload the repo's social card (1280×640)", v -> SocialPreviewActivity.open(this, owner, repo));
             card(col, "🏷  Release order", "Put any release first, last or in between", v -> ReleaseOrderActivity.open(this, owner, repo));

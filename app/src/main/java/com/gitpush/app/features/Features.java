@@ -7,8 +7,8 @@ import java.util.Map;
 public final class Features {
     private Features() {}
 
-    public static final String[] REPO = {"issues", "pulls", "branches", "access", "hooks", "keys", "labels", "insights", "settings", "pages", "cleaner", "envs", "alerts"};
-    public static final String[] ACCOUNT = {"gists", "notifs", "starred", "bulk", "search", "profile"};
+    public static final String[] REPO = {"issues", "pulls", "branches", "access", "hooks", "keys", "labels", "insights", "settings", "pages", "cleaner", "envs", "alerts", "cssecrets"};
+    public static final String[] ACCOUNT = {"gists", "notifs", "starred", "bulk", "search", "cssecrets", "csorg", "profile"};
 
     public static Feature create(String kind) {
         if (kind == null) return null;
@@ -26,6 +26,8 @@ public final class Features {
             case "cleaner": return new CleanerFeature();
             case "envs": return new EnvsFeature();
             case "alerts": return new AlertsFeature();
+            case "cssecrets": return new CsSecretsFeature();
+            case "csorg": return new CsOrgFeature();
             case "gists": return new GistsFeature();
             case "notifs": return new NotifsFeature();
             case "starred": return new StarredFeature();

@@ -151,10 +151,15 @@ class HomeTab {
         r4.addView(action(R.drawable.i_settings, "Control", v -> RepoPicker.pick(a, "Control center for…", r -> ControlActivity.open(a, r.owner, r.name))), cell(0, 4));
         r4.addView(action(R.drawable.i_key, "Signing", v -> KeyToolActivity.open(a)), cell(4, 4));
         r4.addView(action(R.drawable.i_user, "Account", v -> ControlActivity.open(a, "", "")), cell(4, 0));
+        LinearLayout r5 = Ui.hbox(a);
+        r5.addView(action(R.drawable.i_cloud, "Codespaces", v -> CodespacesActivity.open(a, "", "")), cell(0, 4));
+        r5.addView(action(R.drawable.i_terminal, "Run code", v -> CodespacesActivity.open(a, "", "")), cell(4, 4));
+        r5.addView(action(R.drawable.i_key, "CS secrets", v -> FeatureActivity.open(a, "cssecrets", "", "")), cell(4, 0));
         col.addView(r1, side(0, 8));
         col.addView(r2, side(0, 8));
         col.addView(r3, side(0, 8));
-        col.addView(r4, side(0, 4));
+        col.addView(r4, side(0, 8));
+        col.addView(r5, side(0, 4));
 
         // ---- latest build
         final LinearLayout latest = Ui.vbox(a);

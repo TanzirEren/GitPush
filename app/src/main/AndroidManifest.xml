@@ -65,6 +65,9 @@
         <activity android:name=".KeyCreateActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".KeyDetailActivity" android:exported="false" />
         <activity android:name=".SocialPreviewActivity" android:exported="false" />
+        <activity android:name=".CodespacesActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode" />
+        <activity android:name=".CodespaceIdeActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:hardwareAccelerated="true" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode" />
+        <receiver android:name=".CsReminderReceiver" android:exported="false" />
         <activity android:name=".ToolsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

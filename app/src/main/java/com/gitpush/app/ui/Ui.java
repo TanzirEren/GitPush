@@ -2,6 +2,7 @@ package com.gitpush.app.ui;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
@@ -369,4 +370,13 @@ public final class Ui {
     public static long isoMs(String s) { Long t = s == null ? null : parseIso(s); return t == null ? 0 : t; }
 
     public static String agoIso(String s) { Long t = s == null ? null : parseIso(s); return t == null ? "" : ago(t); }
+
+    public static void hideKeyboard(Activity a) {
+        try {
+            View v = a.getCurrentFocus();
+            if (v == null) v = a.getWindow().getDecorView();
+            android.view.inputmethod.InputMethodManager im = (android.view.inputmethod.InputMethodManager) a.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (im != null) im.hideSoftInputFromWindow(v.getWindowToken(), 0);
+        } catch (Exception ignored) { }
+    }
 }

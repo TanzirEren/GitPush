@@ -77,6 +77,8 @@ public class GitHubApi {
     private final Set<Call> calls = ConcurrentHashMap.newKeySet();
 
     public GitHubApi(String token) { this.token = token; }
+    /** Used for private forwarded-port requests (X-Github-Token). Never log it. */
+    public String token() { return token; }
 
     public void abort() { aborted = true; for (Call c : calls) c.cancel(); }
 
